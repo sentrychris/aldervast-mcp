@@ -15,6 +15,8 @@ src/GetWikiEntryTool.php the get_wiki_entry tool: returns one full wiki entry as
 src/WikiEntryParser.php  turns the HTML of one wiki entry into an array (get_wiki_entry uses it)
 src/ListCategoryTool.php the list_category tool: lists every entry in one category, in pages
 src/AldervastSite.php    downloads files from aldervast.online, and keeps copies in cache/ for an hour
+src/ToolCallLog.php      writes every tool call that the MCP server runs to logs/tool-calls.jsonl
+show-log.php             prints that log as a readable list ("composer log")
 src/helpers.php          reads .env, and prints JSON in a readable layout
 tests/                   PHPUnit tests, with saved copies of wiki pages in tests/fixtures/ (see "Tests")
 ```
@@ -222,6 +224,42 @@ Try it by hand:
 '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_category","arguments":{"category":"World boss"}}}' | php mcp-server.php
 ```
 
+### The tool call log
+
+The server writes one line to `logs/tool-calls.jsonl` for every tool call: the time, a session id,
+the tool, its input, the size of the result, whether it failed (with the start of the error), and how
+long it took. Each line is one JSON object, a format called JSON Lines. To read it as a list, run:
+
+```powershell
+composer log          # the last 50 calls, grouped by session
+composer log -- 200   # the last 200
+```
+
+```
+Session f7f4f290, started 2026-11-21 19:54
+  19:54:16  search_wiki     {"query":"deer"}                         730 bytes, 9 ms
+  19:54:16  search_wiki     {"query":"stag"}                         1,482 bytes, 9 ms
+  19:54:16  get_wiki_entry  {"url_or_name":"Elderhorn, the Moss Stag"}  4,351 bytes, 17 ms
+```
+
+The log shows the route that Claude took for each question, in one place, without screenshots. It's
+also where the questions for an eval can come from: real questions, in the order that Claude asked.
+
+Some things to know:
+
+- **A session is one server process.** Claude Desktop starts the server once and sends it every call
+  until you quit the app, so one session can hold several chats. The calls are in time order.
+- **The log stays on your machine.** It holds what Claude searched for, so `logs/` is in `.gitignore`.
+  Delete the file whenever you like; the server starts a new one.
+- **It never breaks a tool call.** If the file can't be written, the call still works; only that log
+  line is lost.
+- **Times are in PHP's time zone,** which is UTC unless `date.timezone` is set in `php.ini`. Each time
+  includes its offset (for example `+00:00`), so it's never ambiguous.
+- **The environment variable `ALDERVAST_TOOL_LOG`** changes where the log goes: a file path writes
+  there instead, and `off` turns it off. The tests use it, so they never write to your real log.
+
+### Adding the server to Claude Code
+
 Add it to Claude Code (no API key needed for this part; Claude Code is the client):
 
 ```powershell
@@ -264,6 +302,7 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `ServerToolTest` | The server list: each server's fields, the list without the object around it, and a definition with no inputs |
 | `ToolDefinitionsTest` | Every tool's definition: the name matches the tool, the description isn't empty, the input schema is a JSON object, every input has a type and a description, and every required input exists |
 | `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
+| `ToolCallLogTest` | The tool call log: one JSON line per call with every field, lines added to the end, errors kept but shortened, broken text still logged, and a file that can't be written doesn't stop the call |
 | `EveryToolHasTestsTest` | That every tool in `src/Tools.php` has its own test class, with at least three tests that call the tool's `run()`. If someone adds a tool without tests, this test fails and says which file to create |
 | `McpServerTest` | The MCP protocol. It starts `mcp-server.php` as a separate process, as Claude Desktop does. Then it checks that the server writes only JSON-RPC to its output, doesn't reply to notifications, sends correct schemas, and reports tool failures with `isError` |
 

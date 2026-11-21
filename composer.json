@@ -29,6 +29,7 @@
             "@putenv XDEBUG_MODE=coverage",
             "phpunit --coverage-html .phpunit.cache/html"
         ],
+        "log": "@php show-log.php",
         "test:mutation": [
             "@putenv XDEBUG_MODE=coverage",
             "@php -d auto_prepend_file= vendor/bin/infection --threads=max --no-progress --show-mutations=0"
@@ -39,7 +40,8 @@
         "test:live": "Check that the real website still works with the code.",
         "test:coverage": "Run the offline tests with code coverage, and fail if any tool is below 80%.",
         "test:coverage-html": "Write a code coverage report to .phpunit.cache/html/index.html.",
-        "test:mutation": "Run mutation testing with Infection, and fail if the score is below 90%."
+        "test:mutation": "Run mutation testing with Infection, and fail if the score is below 90%.",
+        "log": "Show the MCP server's recent tool calls, grouped by session (add -- 200 for more)."
     },
     "config": {
         "allow-plugins": {

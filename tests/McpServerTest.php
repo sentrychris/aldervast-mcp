@@ -16,6 +16,9 @@ final class McpServerTest extends FixtureTestCase
 
     private string $stderr = '';
 
+    /** Where the server writes its tool call log. "off" by default, so tests don't fill your real log. */
+    private string $toolLog = 'off';
+
     /**
      * Sends the messages to a new server process, one JSON object per line. Then it closes the
      * server's input, so that the server's read loop ends, and returns every reply as an array.
@@ -23,7 +26,7 @@ final class McpServerTest extends FixtureTestCase
      */
     private function talk(array ...$messages): array
     {
-        $env = getenv() + ['ALDERVAST_FIXTURES' => self::FIXTURES];
+        $env = ['ALDERVAST_FIXTURES' => self::FIXTURES, 'ALDERVAST_TOOL_LOG' => $this->toolLog] + getenv();
         $process = proc_open(
             [PHP_BINARY, dirname(__DIR__) . '/mcp-server.php'],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
@@ -52,6 +55,33 @@ final class McpServerTest extends FixtureTestCase
     {
         return ['jsonrpc' => '2.0', 'id' => $id, 'method' => 'tools/call',
             'params' => ['name' => $tool, 'arguments' => (object) $arguments]];
+    }
+
+    public function test_each_tool_call_is_written_to_the_tool_call_log(): void
+    {
+        $this->toolLog = tempnam(sys_get_temp_dir(), 'aldervast-log-');
+
+        [$search] = $this->talk(
+            $this->call(1, 'search_wiki', ['query' => 'stag']),
+            $this->call(2, 'get_wiki_entry', ['url_or_name' => 'https://example.com/x.html#a']),
+            ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'tools/list'], // not a tool call, so not logged
+        );
+        $lines = file($this->toolLog, FILE_IGNORE_NEW_LINES);
+        unlink($this->toolLog);
+
+        $this->assertCount(2, $lines);
+        [$first, $second] = array_map(fn (string $line) => $this->decode($line), $lines);
+
+        $this->assertSame('search_wiki', $first['tool']);
+        $this->assertSame(['query' => 'stag'], $first['input']);
+        $this->assertSame(strlen($search['result']['content'][0]['text']), $first['result_bytes']);
+        $this->assertFalse($first['is_error']);
+
+        $this->assertSame('get_wiki_entry', $second['tool']);
+        $this->assertTrue($second['is_error']);
+        $this->assertStringStartsWith('Error: Not an Aldervast wiki entry URL', $second['error']);
+        // Both calls came from one server process, so they share a session id.
+        $this->assertSame($first['session'], $second['session']);
     }
 
     public function test_stdout_holds_only_json_rpc_replies_and_logs_go_to_stderr(): void

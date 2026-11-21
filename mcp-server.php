@@ -27,6 +27,10 @@ ini_set('display_errors', 'stderr');
 // Every tool that this server offers, keyed by tool name. The list itself is in src/Tools.php.
 $tools = Tools::byName();
 
+// Every tool call is written to logs/tool-calls.jsonl, so you can see which tools Claude used and
+// in what order. "composer log" shows it. See src/ToolCallLog.php.
+$log = ToolCallLog::fromEnvironment();
+
 // Guidance for the whole server, sent once in the initialize reply. The client (e.g. Claude Desktop)
 // adds it to the model's context in every chat that uses this server, so every user gets it,
 // whatever their chat history. Each tool description says what one tool does. This text says when
@@ -98,12 +102,17 @@ while (($line = fgets(STDIN)) !== false) {
                 reply_error($id, -32602, 'Unknown tool');
                 break;
             }
+            $arguments = $msg['params']['arguments'] ?? [];
+            $started = hrtime(true);
             try {
-                $text = $class::run($msg['params']['arguments'] ?? []);
-                reply($id, ['content' => [['type' => 'text', 'text' => $text]], 'isError' => false]);
+                $text = $class::run($arguments);
+                $isError = false;
             } catch (Throwable $e) {
-                reply($id, ['content' => [['type' => 'text', 'text' => 'Error: ' . $e->getMessage()]], 'isError' => true]);
+                $text = 'Error: ' . $e->getMessage();
+                $isError = true;
             }
+            $log->record($class::NAME, $arguments, $text, $isError, (hrtime(true) - $started) / 1e9);
+            reply($id, ['content' => [['type' => 'text', 'text' => $text]], 'isError' => $isError]);
             break;
 
         case 'ping':

@@ -35,6 +35,8 @@ src/GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, retur
 src/WikiEntryParser.php   one entry's HTML -> array (article or table row)
 src/ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
 src/AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
+src/ToolCallLog.php     writes one JSON line per tool call to logs/tool-calls.jsonl (gitignored)
+show-log.php            prints that log, grouped by session ("composer log")
 tests/              PHPUnit: offline tests on tests/fixtures/ (saved wiki pages), plus a "live" group
 phpunit.xml         excludes the live group by default; <source> sets what code coverage measures (src/)
 tests/check-coverage.php  fails "composer test:coverage" if any tool has under 80% line coverage
@@ -59,6 +61,7 @@ composer test:coverage            # offline tests with code coverage (needs Xdeb
 composer test:coverage-html       # writes .phpunit.cache/html/index.html, to see which lines no test runs
 composer test:mutation            # mutation testing with Infection (about 90 s); fails below a score of 90%
 php tests/update-fixtures.php     # refresh tests/fixtures/ after the site changes on purpose
+composer log                      # the MCP server's recent tool calls, grouped by session
 php agent.php "your question"     # needs ANTHROPIC_API_KEY in .env, and costs a little money
 
 # Test the MCP server by hand, with no API key and no cost:
@@ -201,6 +204,10 @@ publishes one. That would be game work, which is paused.
   in this project writes anywhere.
 - **Never commit or print secrets.** `.env` is gitignored, and `.env.example` holds only a placeholder.
   Don't read or echo `.env` contents.
+- **The tool call log stays local.** `logs/tool-calls.jsonl` holds what Claude searched for. Don't
+  commit it, copy it into docs or tests, or send it anywhere. Reading it to help Chris (for example to
+  pick eval questions) is fine. Tests must set `ALDERVAST_TOOL_LOG` (to `off` or a temporary file) so
+  they never write to the real log.
 - **This is a learning project.** Prefer small, plain PHP over frameworks or extra packages. Comment *why*,
   for a reader new to agents. Update `README.md` when you add a tool or change how to run things.
 - Say plainly what you tested and what you didn't. Calls to the paid API aren't free, so ask first.

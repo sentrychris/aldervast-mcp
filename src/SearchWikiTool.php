@@ -5,8 +5,8 @@ declare(strict_types=1);
 /**
  * The search_wiki tool: finds entries in the Aldervast wiki.
  *
- * The wiki publishes its whole search index as one file, wiki/search.json: about 1,840 entries,
- * each shaped like
+ * The website keeps its whole search index in one file, wiki/search.json: about 1,840 entries,
+ * each in this form:
  *   {"n": name, "c": category, "u": "wiki/page.html#anchor", "s": short summary, "k": "space separated tags"}
  *
  * There's no search API, so we download that file (cached, see AldervastSite) and score every
@@ -26,13 +26,13 @@ final class SearchWikiTool
     private const MAX_LIMIT = 25;
 
     /**
-     * The wiki's index cuts every summary at 140 characters, often mid-word ("…past Old Kaldris, ba").
-     * A summary this long or longer has been cut. (Punctuation is no clue: many complete summaries
-     * are fragments with no full stop.)
+     * In the wiki's index, every summary is cut at 140 characters, often in the middle of a word
+     * ("…past Old Kaldris, ba"). So a summary of this length or longer has been cut. (Punctuation
+     * doesn't help: many complete summaries are short phrases with no full stop.)
      */
     private const SUMMARY_CUT_LENGTH = 139;
 
-    /** Words so common they'd match half the summaries, so they only add noise to the ranking. */
+    /** Words that are so common that they would match about half the summaries. They make the ranking worse, so we skip them. */
     private const STOP_WORDS = [
         'a', 'an', 'and', 'are', 'at', 'by', 'do', 'for', 'how', 'i', 'in', 'is', 'it',
         'of', 'on', 'or', 'the', 'to', 'what', 'where', 'which', 'who', 'with',
@@ -147,9 +147,9 @@ final class SearchWikiTool
     /**
      * Scores one entry against the query. 0 means "not a match".
      *
-     * The weights are a judgement call, picked so that a name match beats everything else:
-     * if you search "hollow crypt" you want the dungeon called Hollow Crypt, not every
-     * monster whose summary mentions it.
+     * The weights are a judgement call. They're chosen so that a match in the name scores higher
+     * than anything else: if you search "hollow crypt", you want the dungeon called Hollow Crypt,
+     * not every monster whose summary mentions it.
      */
     private static function score(array $entry, string $phrase, array $patterns): int
     {
@@ -181,7 +181,7 @@ final class SearchWikiTool
             return 0;
         }
 
-        // The whole query in the name is the strongest signal of all.
+        // If the name contains the whole query, that's the best sign of a match.
         if ($name === $phrase) {
             $score += 100;
         } elseif (str_starts_with($name, $phrase)) {
@@ -190,7 +190,8 @@ final class SearchWikiTool
             $score += 25;
         }
 
-        // Every word found somewhere: far more likely to be what was meant than a one-word match.
+        // If every word was found somewhere, this entry is far more likely to be what the user
+        // meant than an entry that matches only one word.
         if ($wordsFound === count($patterns) && count($patterns) > 1) {
             $score += 15;
         }
@@ -214,9 +215,10 @@ final class SearchWikiTool
     }
 
     /**
-     * Finds the real category names for what the caller typed. An exact (case-insensitive) match
-     * wins; otherwise every category that starts with it. The wiki has near-duplicates such as
-     * "Hourglass run" and "Hourglass runs", so a prefix is often what's wanted.
+     * Finds the real category names for what the caller typed. If one category matches exactly
+     * (ignoring case), it uses that one. Otherwise it uses every category that starts with what
+     * the caller typed. The wiki has near-duplicates such as "Hourglass run" and "Hourglass runs",
+     * so a prefix often gives the right result.
      */
     public static function matchCategories(string $wanted): array
     {
@@ -238,23 +240,26 @@ final class SearchWikiTool
     }
 
     /**
-     * An entry's summary as the model should see it. The index stores some characters as HTML
-     * entities ("&#x2019;" for ’), so decode them. And if the summary was cut, end it with " …".
+     * An entry's summary in the form that the model should get. The index stores some characters as
+     * HTML codes ("&#x2019;" for ’), so we decode them. And if the summary was cut, we end it with " …".
      *
-     * Why mark the cut: a model given "…armor and raw physical " will quietly finish the sentence
-     * itself ("damage") and present the guess as fact. It can't tell a cut summary from a complete
-     * one, but our code can, so the code should say so. Code is deterministic; the model's guess isn't.
+     * Why mark the cut: a model that gets "…armor and raw physical " will quietly finish the
+     * sentence itself ("damage") and present the guess as fact. The model can't tell a cut summary
+     * from a complete one. Our code can, from the length, so the code adds the mark. Unlike the
+     * model's guess, the code gives the same result every time.
      *
-     * The mark alone doesn't tell the model what to do. That rule ("don't fill in the missing words;
-     * call get_wiki_entry instead") is in INSTRUCTIONS in mcp-server.php and in this tool's
-     * description above. The model reads those when it connects, then sees the mark in a result.
+     * The mark on its own doesn't say what the model should do. That rule ("don't fill in the
+     * missing words; call get_wiki_entry instead") is in INSTRUCTIONS in mcp-server.php and in this
+     * tool's description above. The model gets those when the client connects to the server, and
+     * later sees the mark in a result.
      */
     public static function summary(array $entry): string
     {
         $text = $entry['s'];
         $cut = mb_strlen($text) >= self::SUMMARY_CUT_LENGTH;
         if ($cut) {
-            // The cut can land inside an entity, leaving a stub like "&#x2". Drop it before decoding.
+            // The cut can fall inside an HTML code such as "&#x2019;" and leave only "&#x2".
+            // Remove that before decoding.
             $text = preg_replace('/&#?[0-9A-Za-z]*$/', '', $text);
         }
         $text = trim(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
@@ -262,7 +267,7 @@ final class SearchWikiTool
         return $cut ? "{$text} …" : $text;
     }
 
-    /** The fields the model sees for each result, with readable names and a full URL. */
+    /** The fields that the model gets for each result, with readable names and a full URL. */
     public static function present(array $entry): array
     {
         $out = [

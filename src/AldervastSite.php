@@ -6,19 +6,21 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 
 /**
- * Reads files from the public Aldervast website (https://aldervast.online), with a small disk cache.
+ * Reads files from the public Aldervast website (https://aldervast.online), and keeps copies on disk.
  *
- * Why a cache: a model may call a tool many times in one conversation, and the wiki's search.json
- * alone is about 320 KB. The site only changes when the game ships a release, so a copy up to an
- * hour old is fine, and it keeps us polite to a small static site.
+ * Why keep copies: a model may call a tool many times in one conversation, and the wiki's
+ * search.json alone is about 320 KB. The website only changes when a new version of the game is
+ * released, so a copy that is up to an hour old is fine. It also means fewer requests to a small
+ * website.
  *
- * Cached copies live in cache/ (gitignored). Delete that folder to force fresh downloads.
+ * The copies are kept in cache/, which git ignores. Delete that folder to download everything again.
  */
 final class AldervastSite
 {
     public const BASE_URL = 'https://aldervast.online';
 
-    private const TTL_SECONDS = 3600;
+    /** How long a copy in cache/ is used before it is downloaded again, unless the caller asks for less. */
+    public const MAX_AGE_SECONDS = 3600;
 
     private const USER_AGENT = 'aldervast-mcp/1.0';
 
@@ -28,14 +30,35 @@ final class AldervastSite
         return self::BASE_URL . '/' . ltrim($path, '/');
     }
 
-    /** The body of a site path: from the cache while it's fresh, otherwise from the network. */
-    public static function get(string $path): string
+    /**
+     * Returns the contents of a file on the website. If cache/ has a copy that is younger than
+     * $maxAgeSeconds (an hour, unless the caller says otherwise), it returns that copy. Otherwise it
+     * downloads the file and saves a new copy. With $maxAgeSeconds = 0 it always downloads, but still
+     * keeps the copy, which it uses if the website can't be reached.
+     *
+     * For tests: if the environment variable ALDERVAST_FIXTURES holds a folder name, it reads the
+     * file from that folder instead, and downloads nothing. The tests then get the same data every
+     * time, work offline, and don't fail because the website changed. The script
+     * tests/update-fixtures.php puts fresh copies in that folder.
+     */
+    public static function get(string $path, int $maxAgeSeconds = self::MAX_AGE_SECONDS): string
     {
-        // A "#fragment" picks a spot inside a page; it's never sent to the server, so drop it.
+        // The part after "#" points to a place inside the page. Browsers never send it to the
+        // server, so we remove it.
         $path = ltrim(explode('#', $path, 2)[0], '/');
-        $file = self::cacheFile($path);
 
-        if (is_file($file) && time() - filemtime($file) < self::TTL_SECONDS) {
+        $fixtures = getenv('ALDERVAST_FIXTURES');
+        if ($fixtures !== false && $fixtures !== '') {
+            $fixture = rtrim($fixtures, '/\\') . '/' . self::fileName($path);
+            if (!is_file($fixture)) {
+                throw new RuntimeException("No test fixture for {$path} (looked for {$fixture})");
+            }
+            return (string) file_get_contents($fixture);
+        }
+
+        $file = dirname(__DIR__) . '/cache/' . self::fileName($path);
+
+        if (is_file($file) && time() - filemtime($file) < $maxAgeSeconds) {
             return (string) file_get_contents($file);
         }
 
@@ -43,7 +66,8 @@ final class AldervastSite
             $http = new Client(['timeout' => 15, 'headers' => ['User-Agent' => self::USER_AGENT]]);
             $body = (string) $http->get(self::url($path))->getBody();
         } catch (GuzzleException $e) {
-            // Site down, or we're offline? An old copy beats no answer. With no copy at all, give up.
+            // If the website is down or we're offline, an old copy is better than nothing.
+            // If there is no copy at all, give up.
             if (is_file($file)) {
                 fwrite(STDERR, "[aldervast-mcp] fetch failed, using stale cache for {$path}: {$e->getMessage()}\n");
                 return (string) file_get_contents($file);
@@ -59,17 +83,15 @@ final class AldervastSite
         return $body;
     }
 
-    /** Same as get(), decoded as JSON into PHP arrays. */
-    public static function json(string $path): array
+    /** Same as get(), but decodes the JSON into PHP arrays. */
+    public static function json(string $path, int $maxAgeSeconds = self::MAX_AGE_SECONDS): array
     {
-        return json_decode(self::get($path), true, flags: JSON_THROW_ON_ERROR);
+        return json_decode(self::get($path, $maxAgeSeconds), true, flags: JSON_THROW_ON_ERROR);
     }
 
-    /** "wiki/search.json" is cached as cache/wiki_search.json. */
-    private static function cacheFile(string $path): string
+    /** The name of the file that holds a page, in cache/ or tests/fixtures/. For example, "wiki/search.json" becomes "wiki_search.json". */
+    public static function fileName(string $path): string
     {
-        $name = preg_replace('/[^A-Za-z0-9.-]+/', '_', $path);
-
-        return dirname(__DIR__) . '/cache/' . $name;
+        return preg_replace('/[^A-Za-z0-9.-]+/', '_', ltrim(explode('#', $path, 2)[0], '/'));
     }
 }

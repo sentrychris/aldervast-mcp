@@ -13,8 +13,8 @@
  *   3. Repeat until stop_reason is "end_turn": the model has its final answer.
  *
  * That's all an "agent" is: a while loop around an HTTP call, where the model chooses
- * which of YOUR functions to call next. No magic happens on Anthropic's side beyond the model
- * deciding to emit a tool_use block instead of plain text.
+ * which of YOUR functions to call next. On Anthropic's side, the only thing that happens is that
+ * the model decides to reply with a tool_use block instead of plain text.
  */
 
 require __DIR__ . '/vendor/autoload.php';
@@ -50,15 +50,13 @@ $messages = [
     ['role' => 'user', 'content' => $question],
 ];
 
-// The tools the model may ask for, keyed by tool name, so we can find the class to run later.
-$toolClasses = [];
-foreach ([ServerTool::class, SearchWikiTool::class, GetWikiEntryTool::class, ListCategoryTool::class] as $class) {
-    $toolClasses[$class::NAME] = $class;
-}
+// The tools that the model may ask for, keyed by tool name, so that we can find the class to run
+// later. The list itself is in src/Tools.php.
+$toolClasses = Tools::byName();
 // The model only ever sees the definitions (name, description, input schema), never the PHP.
 $tools = array_map(fn (string $class) => $class::definition(), array_values($toolClasses));
 
-for ($turn = 1; $turn <= 5; $turn++) {   // A safety cap so a confused model can't loop forever.
+for ($turn = 1; $turn <= 5; $turn++) {   // A limit, so that a confused model can't keep the loop going forever.
     $request = [
         'model' => 'claude-sonnet-5-5',
         'max_tokens' => 4096,
@@ -130,7 +128,7 @@ for ($turn = 1; $turn <= 5; $turn++) {   // A safety cap so a confused model can
             $isError = true;
         }
 
-        // tool_use_id links this result to the exact request the model made.
+        // tool_use_id links this result to the exact request that the model made.
         $results[] = [
             'type' => 'tool_result',
             'tool_use_id' => $block['id'],

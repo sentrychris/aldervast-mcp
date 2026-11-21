@@ -1,8 +1,8 @@
 <?php
 
 /**
- * Tiny .env reader, so we don't need another package.
- * Reads KEY=value lines and ignores blanks and # comments.
+ * Reads a .env file, so that we don't need another package for it.
+ * It reads KEY=value lines, and skips empty lines and lines that start with #.
  */
 function load_env(string $path): void
 {
@@ -19,13 +19,13 @@ function load_env(string $path): void
     }
 }
 
-/** Pretty-print anything as JSON so the wire format is easy to read. */
+/** Formats any value as indented JSON, so that the requests and replies are easy to read. */
 function pretty(mixed $data): string
 {
     return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 }
 
-/** Print a coloured step heading (colours work in Windows Terminal and PowerShell 7). */
+/** Prints a coloured heading for one step of the agent loop (colours work in Windows Terminal and PowerShell 7). */
 function step(string $title): void
 {
     echo "\n\033[1;36m=== {$title} ===\033[0m\n";

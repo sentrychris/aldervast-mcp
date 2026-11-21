@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PHPUnit settings. "composer test" runs the offline tests, which use saved copies of the pages
+  and don't need the network. The tests in the "live" group use the real website, so PHPUnit
+  skips them unless you ask for that group ("composer test:live").
+  README.md explains both, under "Tests".
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true">
+    <testsuites>
+        <testsuite name="aldervast-mcp">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <groups>
+        <exclude>
+            <!-- Live tests hit aldervast.online, so they only run when asked for. -->
+            <group>live</group>
+        </exclude>
+    </groups>
+</phpunit>

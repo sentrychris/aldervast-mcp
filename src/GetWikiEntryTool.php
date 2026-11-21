@@ -5,19 +5,21 @@ declare(strict_types=1);
 /**
  * The get_wiki_entry tool: one full wiki entry as clean JSON.
  *
- * search_wiki only sees the search index, whose summaries are a single line (the Hollow Crypt's is
- * "Level 5 dungeon with 11 rooms"). The details a player actually asks about, such as the boss,
- * the entrance, the rewards, a quest's objectives or a boss's phases, are only on the full page.
- * This tool fetches that page, cuts out the one entry, and drops the layout HTML.
+ * search_wiki only uses the search index, where each summary is a single line (the Hollow Crypt's
+ * is "Level 5 dungeon with 11 rooms"). The details that players actually ask about, such as the
+ * boss, the entrance, the rewards, a quest's objectives or a boss's phases, are only on the full
+ * page. This tool downloads that page, takes out the one entry, and removes the HTML that only
+ * exists for the page layout.
  *
- * Its "links" list is what lets the model follow the wiki the way a player clicks through it:
- * dungeon -> its boss -> the item the boss drops, one get_wiki_entry call each.
+ * Each result has a "links" list. With it, the model can move through the wiki the way that a
+ * player clicks through it: from a dungeon to its boss, then to the item that the boss drops,
+ * with one get_wiki_entry call for each step.
  */
 final class GetWikiEntryTool
 {
     public const NAME = 'get_wiki_entry';
 
-    /** Limits that keep one result small, since it all lands in the model's context window. */
+    /** Limits that keep one result small, because the whole result goes into the model's context window. */
     private const MAX_CHARS_PER_VALUE = 600;
 
     private const MAX_LINES_PER_SECTION = 30;
@@ -85,7 +87,7 @@ final class GetWikiEntryTool
             throw new RuntimeException("{$page} has no entry #{$id}. The wiki may have changed; use search_wiki to find it again.");
         }
 
-        // Name, subtitle and URL first, so the JSON reads top-down.
+        // Put the name, subtitle and URL first, so that the JSON is easy to read from the top.
         $entry = ['name' => $entry['name'], 'sub' => $entry['sub'], 'url' => AldervastSite::url($location)] + $entry;
 
         return pretty(self::shrink($entry));
@@ -168,7 +170,7 @@ final class GetWikiEntryTool
             $entry['links_not_shown'] = $linkCount - self::MAX_LINKS;
         }
 
-        // An empty [] would read as "this entry has no facts"; it's clearer to leave the key out.
+        // An empty [] could look like "this entry has no facts", so it's clearer to leave the key out.
         return array_filter($entry, fn ($value) => $value !== '' && $value !== []);
     }
 

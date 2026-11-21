@@ -5,14 +5,14 @@ declare(strict_types=1);
 /**
  * The list_category tool: every wiki entry in one category, such as all world bosses or all mounts.
  *
- * Why browsing helps even though we already have search: search matches WORDS, and players don't
- * use the wiki's words. Asked about "the big deer boss", search_wiki finds nothing useful, because
- * the wiki calls it "Elderhorn, the Moss Stag" and never says "deer". But list the ten world bosses
- * and the model spots the stag at once. The model is good at matching meaning; we just have to
- * show it the candidates.
+ * Why a list helps, even though we already have search: search matches WORDS, and players don't
+ * use the wiki's words. When a player asks about "the big deer boss", search_wiki finds nothing
+ * useful, because the wiki calls it "Elderhorn, the Moss Stag" and never uses the word "deer".
+ * But if we list the ten world bosses, the model spots the stag at once. The model is good at
+ * matching meaning; we just have to show it the candidates.
  *
- * Called with no category, it lists the categories and how many entries each has, so the model
- * can find the right one.
+ * If it's called with no category, it lists the categories and how many entries each one has,
+ * so that the model can find the right one.
  */
 final class ListCategoryTool
 {
@@ -106,7 +106,8 @@ final class ListCategoryTool
     private static function present(array $entry, bool $withCategory): array
     {
         $out = ['name' => $entry['n']];
-        // Only worth the space when a prefix matched several categories ("hourglass").
+        // Only include the category when a prefix matched several categories ("hourglass").
+        // Otherwise every entry has the same category, and it would waste space.
         if ($withCategory) {
             $out['category'] = $entry['c'];
         }

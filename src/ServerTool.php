@@ -1,25 +1,26 @@
 <?php
 
-use GuzzleHttp\Client;
+declare(strict_types=1);
 
 /**
- * The one tool in this project: list_servers.
+ * The list_servers tool, and the first tool in this project.
  *
  * A "tool" is just two things:
  *   1. a DEFINITION (name, description, JSON Schema for its input) that we send to the model, and
  *   2. some CODE that we run ourselves when the model asks for it.
  *
- * The model never runs anything. It only says "please call list_servers with this input",
- * and our PHP does the real work. Both agent.php and mcp-server.php use this class,
- * which is the whole point: same tool, two ways to plug it in.
+ * The model never runs anything. It only asks us to "call list_servers with this input", and our
+ * PHP does the real work. Both agent.php and mcp-server.php use this class. That's the point of
+ * keeping each tool in its own class: the same tool works in both places.
  */
 final class ServerTool
 {
     public const NAME = 'list_servers';
 
-    public const URL = 'https://aldervast.online/servers.json';
+    /** The server list's path on the website, https://aldervast.online/servers.json. */
+    public const PATH = 'servers.json';
 
-    /** The definition the model sees. The description is what tells it WHEN to use the tool. */
+    /** The definition that we send to the model. The model reads the description to decide WHEN to use the tool. */
     public static function definition(): array
     {
         return [
@@ -37,15 +38,18 @@ final class ServerTool
     }
 
     /**
-     * The code that actually runs. Fetches servers.json, which looks like:
+     * The code that runs when the model asks for this tool. It downloads servers.json, which looks like:
      *   {"servers": [{"name": "...", "address": "...", "port": 24650, "note": "..."}]}
      * Returns a plain string, because a tool result is just text (or JSON as text) for the model to read.
+     *
+     * A server can be added or taken down at any time, so this asks AldervastSite for a fresh
+     * download every time (a maximum age of 0), rather than a copy that is up to an hour old.
+     * Going through AldervastSite still matters: it sends the project's User-Agent, keeps a copy for
+     * when the website can't be reached, and lets the tests use a saved copy instead.
      */
     public static function run(array $input = []): string
     {
-        $http = new Client(['timeout' => 15]);
-        $body = (string) $http->get(self::URL)->getBody();
-        $data = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+        $data = AldervastSite::json(self::PATH, maxAgeSeconds: 0);
 
         return pretty($data['servers'] ?? []);
     }

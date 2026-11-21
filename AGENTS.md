@@ -28,12 +28,15 @@ is paused; this project only *reads* public game data.
 agent.php           the agent loop demo (Messages API over Guzzle)
 mcp-server.php      stdio MCP server: initialize, tools/list, tools/call, ping
 src/helpers.php     load_env(), pretty(), step()
+src/Tools.php       the list of every tool; mcp-server.php, agent.php and the tests all read it
 src/ServerTool.php  the list_servers tool: definition() + run()
 src/SearchWikiTool.php  the search_wiki tool: scores wiki/search.json entries against a query
 src/GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
 src/WikiEntryParser.php   one entry's HTML -> array (article or table row)
 src/ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
 src/AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
+tests/              PHPUnit: offline tests on tests/fixtures/ (saved wiki pages), plus a "live" group
+phpunit.xml         excludes the live group by default
 composer.json       PHP >= 8.1, guzzlehttp/guzzle ^7.8, autoload "files"
 .env.example        ANTHROPIC_API_KEY placeholder (the real .env is gitignored)
 .mcp.json           registers mcp-server.php with Claude Code for this folder
@@ -49,6 +52,9 @@ The machine is Windows with PowerShell. PHP and Composer are on the PATH.
 composer install
 composer dump-autoload            # after adding a file to "autoload"
 php -l mcp-server.php             # syntax check
+composer test                     # offline tests (no network); run after every change
+composer test:live                # checks the real site still matches what the code expects
+php tests/update-fixtures.php     # refresh tests/fixtures/ after the site changes on purpose
 php agent.php "your question"     # needs ANTHROPIC_API_KEY in .env, and costs a little money
 
 # Test the MCP server by hand, with no API key and no cost:
@@ -74,18 +80,23 @@ Every tool is one class in `src/`, shaped like `ServerTool`:
 - `run(array $input): string` does the work and returns text (often JSON) for the model to read.
   Throw on failure; both callers turn exceptions into an error result.
 
-Then wire it up in three places:
+Then add it in two places:
 
-1. `composer.json` `autoload.files` (or move to PSR-4 once there are several classes; that's fine), then
-   run `composer dump-autoload`.
-2. `mcp-server.php`: add the class to the tool registry list near the top. `tools/list` and `tools/call`
-   both read that registry.
-3. `agent.php`: add the class to its registry list too, so the demo can use it.
+1. `composer.json`, under `autoload.files` (or switch to PSR-4 once there are many classes; that's
+   fine). Then run `composer dump-autoload`.
+2. `src/Tools.php`: add the class to `Tools::ALL`. `mcp-server.php`, `agent.php` and the tests all
+   read that list, so nothing else needs to change.
 
-Fetch from the site through `AldervastSite::get()` / `json()`, not a bare Guzzle call, so the request is
-cached and sends the project's User-Agent.
+Download from the website through `AldervastSite::get()` or `json()`, not with your own Guzzle call,
+so that the request uses the cache, sends the project's User-Agent, and can read the saved copies in
+the tests. For data that must always be fresh, pass a maximum age of 0, as `ServerTool` does.
 
-Test it by piping `tools/call` JSON-RPC into the server before you try it through a client.
+Write a test class in `tests/` that extends `FixtureTestCase`. If the tool reads a page that isn't
+saved yet, add the page to `tests/update-fixtures.php` and run that script. Then run `composer test`.
+This is checked: `EveryToolHasTestsTest` fails until `tests/<ToolClass>Test.php` exists, has at least
+three test methods of its own, and calls `<ToolClass>::run(`. Don't weaken that test to get a new tool
+through; write the tests.
+After that, try the tool by piping a `tools/call` request into the server, and finally through a client.
 
 ## MCP rules that break things when you forget them
 
@@ -191,3 +202,44 @@ PHP 8.1+, `declare(strict_types=1)` welcome in new files, PSR-12 formatting, `fi
 returns, and no globals beyond what the two entry scripts need. Use Guzzle for HTTP. Keep each tool's
 output small and structured (JSON text), since it lands in the model's context window. Trim long lists and
 say how many items you left out.
+
+## Writing comments and documentation
+
+This applies to code comments, docblocks, test method names, README.md, this file, and any other
+document for people. Chris has asked for it so that the writing stays consistent. Follow it when you
+add or change anything, and fix older text that breaks it when you're editing nearby anyway.
+
+**Write so that a person understands it on the first reading.** Language models overuse sentence
+patterns that are harder for people to read (Clark, Martin and Mahowald, 2026, "Why is AI-generated
+language so hard to understand?", arXiv 2610.29162). The paper only measures these patterns; the
+rules below are how this project avoids them:
+
+- **Don't leave out "that".** Write "the pages that the tests use", not "the pages the tests use".
+- **Don't give things human actions.** Not "the tests notice", "the parser knows" or "the cache
+  swallows it". Say what actually happens: "the tests fail", "the parser returns no facts". The
+  model is the exception: in an agent loop it really does choose and ask, so "the model asks for a
+  tool" is fine.
+- **Don't use a noun as a verb** when an ordinary verb exists.
+- **No stacks of three or more nouns,** such as "fixture refresh script". Write "the script that
+  downloads fresh copies".
+- **No made-up or unusual phrases,** such as "has the shape the code expects" or "real-style
+  questions". Use common wording.
+- **Keep related words close together.** Keep the subject near its verb, and keep sentences short.
+
+**Also:**
+
+- **Use standard terms, and explain a standard term the first time it appears** in a document, e.g.
+  "saved test data like this is called a fixture".
+- **Say each thing in one place:** the class or file that it's about, plus the README for readers
+  outside the code. Don't copy the same explanation into several files; the copies drift apart.
+- **Keep comments true.** When you change code, update the comments and docs that describe it. (A
+  past pass found three that were out of date: the number of tools, the length of `agent.php`, and
+  how to add a tool.)
+- **Test method names follow the same rules,** because `vendor/bin/phpunit --testdox` prints them as
+  sentences: `test_entries_with_the_exact_name_come_first`, not `test_exact_name_ranks_its_entries_first`.
+
+**The exception: text that the model reads.** Tool descriptions, `INSTRUCTIONS` in `mcp-server.php`,
+error messages and hints are written for Claude, not for people. Changing their wording can change
+how Claude behaves, so don't reword them only for style. Change them when the behaviour needs to
+change, then test the result in Claude Desktop (or with an eval, once there is one). They still follow
+the rule in "MCP rules that break things when you forget them": no facts about specific game content.

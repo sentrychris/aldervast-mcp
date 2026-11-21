@@ -7,6 +7,13 @@
         "guzzlehttp/guzzle": "^7.8"
     },
     "autoload": {
-        "files": ["src/helpers.php", "src/AldervastSite.php", "src/ServerTool.php", "src/SearchWikiTool.php", "src/WikiEntryParser.php", "src/GetWikiEntryTool.php", "src/ListCategoryTool.php"]
+        "files": ["src/helpers.php", "src/AldervastSite.php", "src/ServerTool.php", "src/SearchWikiTool.php", "src/WikiEntryParser.php", "src/GetWikiEntryTool.php", "src/ListCategoryTool.php", "src/Tools.php"]
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^13.4"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:live": "phpunit --group live"
     }
 }

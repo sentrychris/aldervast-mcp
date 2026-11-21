@@ -36,7 +36,9 @@ src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.ph
   GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
   ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
   LevellingRouteTool.php  the levelling_route tool: regions, dungeons and quests that suit a level, from the Level facts
+  LatestReleaseTool.php  the latest_release tool: the first release in changelog.html's list (version, date, notes)
   WikiEntryParser.php one entry's HTML -> array (article or table row)
+  Html.php            Html::xpath(): parses HTML (UTF-8 prefix, libxml warnings collected and cleared)
   AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
   Json.php            Json::pretty(): the JSON layout of every tool's output
 src/Mcp/            Aldervast\Mcp: the MCP server's own code
@@ -211,7 +213,8 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
    README.md, "How levelling_route decides", has the rules and the data quirks (region ranges stop at 34;
    "can take it" removes nothing today; why main story comes from the chapter guides, not from the
    `quest-ms` ids).
-5. `latest_release()`: the newest version and its notes, parsed from `/changelog.html`.
+5. ~~`latest_release()`~~: done (`src/Tools/LatestReleaseTool.php`). Returns the first item of the page's
+   `<ol class="timeline">` (newest first), using the page's default cache age of an hour.
 6. MCP **resources** (`resources/list`, `resources/read`) for whole pages, and **prompts**
    (e.g. "plan my build"), once the tools are solid. Declare each capability in `initialize`.
 

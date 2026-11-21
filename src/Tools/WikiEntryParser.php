@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Aldervast\Tools;
 
-use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
@@ -23,8 +22,7 @@ use InvalidArgumentException;
  *        "Objectives", "Phases" or "Encounter journal".
  *   2. A table row <tr> (base items, achievements): the column headings show what each cell holds.
  *
- * PHP's built-in DOMDocument parses the HTML and DOMXPath finds things in it, so we don't
- * need a scraping package.
+ * Html::xpath() parses the page, with PHP's built-in DOMDocument.
  */
 final class WikiEntryParser
 {
@@ -50,18 +48,7 @@ final class WikiEntryParser
      */
     public function __construct(string $html, private string $pagePath)
     {
-        $doc = new DOMDocument();
-        // Real-world HTML is rarely perfect, so libxml produces warnings. Collect them instead of
-        // printing them, because a warning on stdout would break the MCP protocol.
-        $previous = libxml_use_internal_errors(true);
-        // The <?xml> prefix tells libxml that the page is UTF-8. The wiki's pages already say so in a
-        // <meta charset> tag, but HTML without that tag would come out garbled ("é" as "Ã©"), so the
-        // prefix is a safety net. WikiEntryParserTest checks it with HTML that has no <meta> tag.
-        $doc->loadHTML('<?xml encoding="utf-8"?>' . $html);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
-
-        $this->xpath = new DOMXPath($doc);
+        $this->xpath = Html::xpath($html);
     }
 
     /** The entry with this id as an array, or null if the page has no such element. */

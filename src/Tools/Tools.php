@@ -8,7 +8,7 @@ namespace Aldervast\Tools;
  * The list of every tool in this project, and the instructions that go with them.
  *
  * mcp-server.php, agent.php, the eval and the tests all read this list, so that a new tool only has
- * to be added in one place. To add a tool, write its class in src/ and add the class here (the full
+ * to be added in one place. To add a tool, write its class in src/Tools/ and add the class here (the full
  * steps are in AGENTS.md, under "How to add a tool").
  */
 final class Tools
@@ -38,6 +38,7 @@ final class Tools
         GetWikiEntryTool::class,
         ListCategoryTool::class,
         LevellingRouteTool::class,
+        LatestReleaseTool::class,
     ];
 
     /**

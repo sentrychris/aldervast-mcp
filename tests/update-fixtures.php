@@ -37,6 +37,7 @@ const PAGES = [
     'wiki/classes.html',
     'wiki/guides.html',
     'wiki/worldbosses.html',
+    'changelog.html',
 ];
 
 // Clear the setting, so that we download from the real website and not from the copies that we're

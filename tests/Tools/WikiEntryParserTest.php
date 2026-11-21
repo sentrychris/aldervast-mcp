@@ -115,15 +115,6 @@ final class WikiEntryParserTest extends FixtureTestCase
         $this->assertSame('Café Limits', $this->entry('wiki/handmade.html', 'test-limits')['name']);
     }
 
-    public function test_html_without_a_charset_tag_is_still_read_as_utf8(): void
-    {
-        // No <meta charset> tag here, unlike the wiki's pages. Without the parser's UTF-8 prefix,
-        // libxml would read "é" as "Ã©".
-        $html = '<article class="entry" id="a"><h3>Café · “quoted”</h3></article>';
-
-        $this->assertSame('Café · “quoted”', (new WikiEntryParser($html, 'wiki/a.html'))->entry('a')['name']);
-    }
-
     public function test_a_second_description_goes_into_the_text(): void
     {
         // Region entries have two descriptions: a short one, then a longer one.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aldervast\Tests\Tools;
 
 use Aldervast\Tools\GetWikiEntryTool;
+use Aldervast\Tools\LatestReleaseTool;
 use Aldervast\Tools\SearchWikiTool;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -12,7 +13,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests against the real website, to find out whether it has changed in a way that breaks our code.
  * They check that the search index still has the fields that the tools use, that summaries are
- * still cut at 140 characters, and that the parser can still read a known entry.
+ * still cut at 140 characters, that the parser can still read a known entry, and that the changelog
+ * still lists releases in the layout that latest_release reads.
  *
  * The other tests use saved copies of the pages, so they keep passing when the website changes.
  * These tests fail instead.
@@ -66,5 +68,14 @@ final class LiveSiteTest extends TestCase
         $this->assertSame('The Hollow Crypt', $result['name']);
         $this->assertArrayHasKey('Boss', $result['facts']);
         $this->assertNotEmpty($result['links']);
+    }
+
+    public function test_the_changelog_still_lists_releases_in_the_layout_that_latest_release_reads(): void
+    {
+        $release = json_decode(LatestReleaseTool::run([]), true);
+
+        $this->assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', $release['version']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/', $release['date']);
+        $this->assertNotSame('', $release['notes']);
     }
 }

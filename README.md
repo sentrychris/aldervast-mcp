@@ -15,7 +15,9 @@ src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offer
   GetWikiEntryTool.php   the get_wiki_entry tool: returns one full wiki entry as JSON
   ListCategoryTool.php   the list_category tool: lists every entry in one category, in pages
   LevellingRouteTool.php the levelling_route tool: the regions, dungeons and quests that suit a level
+  LatestReleaseTool.php  the latest_release tool: the newest version and its notes, from the changelog
   WikiEntryParser.php    turns the HTML of one wiki entry into an array (get_wiki_entry uses it)
+  Html.php               parses a page of HTML (WikiEntryParser and latest_release use it)
   AldervastSite.php      downloads files from aldervast.online, and keeps copies in cache/ for an hour
   Json.php               prints JSON in a readable layout
 src/Mcp/       Aldervast\Mcp     the MCP server's own code
@@ -54,6 +56,7 @@ So `src/Tools/` is the whole MCP product, with no learning or measuring code mix
 | `get_wiki_entry` | `url_or_name`, optional `category` | One full entry: description, facts, sections, and links to the entries it mentions. |
 | `list_category` | optional `category`, `offset`, `limit` (default 50, max 100) | Every entry in a category: name, summary, URL. With no category, the categories and their sizes. |
 | `levelling_route` | `level` (1 to 60) | The regions, dungeons and quests that suit that level, with levels, quest givers, the quest that must come first, the quest that leads into each dungeon, when a dungeon is only open at certain times, the main-story chapter of each main-story quest, the boss of a world boss quest, and URLs. |
+| `latest_release` | none | The newest version of the game: its version number, release date and release notes, from the changelog page. |
 
 ### When search misses: words versus meaning
 
@@ -379,6 +382,8 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `GetWikiEntryToolTest` | Different ways of writing a URL, names that several entries share, suggestions for near misses, refusing other websites, and shortening long output |
 | `ListCategoryToolTest` | The list of categories and their sizes, pages of results for big categories, category labels, and cut summaries |
 | `LevellingRouteToolTest` | Which regions, dungeons and quests suit a level: both ends of a region's range, dungeons 2 levels away and not 3, a dungeon that scales, the quest that leads into a dungeon, when a dungeon is open, main-story chapters (and a side quest that a chapter guide links to, which stays unmarked), world boss quests, the 20-quest cut, the note when no region fits, and refused levels |
+| `LatestReleaseToolTest` | The newest release: its version, date, whole notes without HTML codes, notes over several lines, a release without a date, and an error when the page has no list of releases or a release has no version |
+| `HtmlTest` | Reading HTML: UTF-8 without a `<meta charset>` tag, and libxml's setting put back and its warnings cleared afterwards |
 | `ServerToolTest` | The server list: each server's fields, the list without the object around it, and a definition with no inputs |
 | `ToolDefinitionsTest` | Every tool's definition: the name matches the tool, the description isn't empty, the input schema is a JSON object, every input has a type and a description, and every required input exists |
 | `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
@@ -392,8 +397,8 @@ You can ask two different questions about an MCP server, and these tests answer 
 
 ### Saved copies of the pages (fixtures)
 
-The offline tests don't use the live website. They use saved copies of ten wiki pages and
-`servers.json` in `tests/fixtures/` (about 1.7 MB, committed to git). Saved test data like this is called a
+The offline tests don't use the live website. They use saved copies of ten wiki pages, the
+changelog page and `servers.json` in `tests/fixtures/` (about 1.8 MB, committed to git). Saved test data like this is called a
 fixture. When the environment variable `ALDERVAST_FIXTURES` is set, `AldervastSite` reads pages
 from that folder and doesn't download anything. Each offline test sets it before it runs. As a
 result, the tests give the same result every time, work offline, and don't fail because the

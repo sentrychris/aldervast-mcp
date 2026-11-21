@@ -76,6 +76,31 @@ final class WikiEntryParser
             return null;
         }
 
+        return $this->read($node, $id);
+    }
+
+    /**
+     * Every entry on the page (each <article> and table row with an id), keyed by id, in page order.
+     *
+     * This reads the page once. Calling entry() for each id searches the whole page every time,
+     * which on quests.html (188 entries) takes over half a second instead of a few milliseconds.
+     */
+    public function entries(): array
+    {
+        $entries = [];
+        foreach ($this->xpath->query('//article[@id] | //tr[@id]') as $node) {
+            if ($node instanceof DOMElement) {
+                $id = $node->getAttribute('id');
+                $entries[$id] = $this->read($node, $id);
+            }
+        }
+
+        return $entries;
+    }
+
+    /** One entry, from its element: an <article> or a table row. */
+    private function read(DOMElement $node, string $id): array
+    {
         $entry = $node->nodeName === 'tr' ? $this->fromTableRow($node) : $this->fromArticle($node);
         $entry['links'] = $this->links($node, $id);
 

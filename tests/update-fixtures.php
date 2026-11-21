@@ -33,6 +33,7 @@ const PAGES = [
     'wiki/items.html',
     'wiki/achievements.html',
     'wiki/regions.html',
+    'wiki/quests.html',
     'wiki/classes.html',
 ];
 

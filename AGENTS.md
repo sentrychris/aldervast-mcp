@@ -35,6 +35,7 @@ src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.ph
   SearchWikiTool.php  the search_wiki tool: scores wiki/search.json entries against a query
   GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
   ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
+  LevellingRouteTool.php  the levelling_route tool: regions, dungeons and quests that suit a level, from the Level facts
   WikiEntryParser.php one entry's HTML -> array (article or table row)
   AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
   Json.php            Json::pretty(): the JSON layout of every tool's output
@@ -204,7 +205,9 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
 3. ~~`list_category(category?)`~~: done (`src/Tools/ListCategoryTool.php`). It also covers search misses caused by
    wording ("big deer boss" vs "Moss Stag"): the model browses the category and matches by meaning. The
    heavier fix, semantic search with embeddings, needs a new provider and API key; ask Chris first.
-4. `levelling_route(level)`: dungeons, quests and regions suited to a level, from the Level facts.
+4. ~~`levelling_route(level)`~~: done (`src/Tools/LevellingRouteTool.php`). Reads regions.html, dungeons.html
+   and quests.html once each with `WikiEntryParser::entries()`. README.md, "How levelling_route decides",
+   has the rules and the data quirks (region ranges stop at 34; "can take it" removes nothing today).
 5. `latest_release()`: the newest version and its notes, parsed from `/changelog.html`.
 6. MCP **resources** (`resources/list`, `resources/read`) for whole pages, and **prompts**
    (e.g. "plan my build"), once the tools are solid. Declare each capability in `initialize`.

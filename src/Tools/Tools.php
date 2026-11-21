@@ -37,6 +37,7 @@ final class Tools
         SearchWikiTool::class,
         GetWikiEntryTool::class,
         ListCategoryTool::class,
+        LevellingRouteTool::class,
     ];
 
     /**

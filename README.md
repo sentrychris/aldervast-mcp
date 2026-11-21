@@ -14,6 +14,7 @@ src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offer
   SearchWikiTool.php     the search_wiki tool: searches the game wiki's index
   GetWikiEntryTool.php   the get_wiki_entry tool: returns one full wiki entry as JSON
   ListCategoryTool.php   the list_category tool: lists every entry in one category, in pages
+  LevellingRouteTool.php the levelling_route tool: the regions, dungeons and quests that suit a level
   WikiEntryParser.php    turns the HTML of one wiki entry into an array (get_wiki_entry uses it)
   AldervastSite.php      downloads files from aldervast.online, and keeps copies in cache/ for an hour
   Json.php               prints JSON in a readable layout
@@ -52,6 +53,7 @@ So `src/Tools/` is the whole MCP product, with no learning or measuring code mix
 | `search_wiki` | `query`, optional `category` and `limit` (default 10, max 25) | The best-matching wiki entries: name, category, short summary, URL. |
 | `get_wiki_entry` | `url_or_name`, optional `category` | One full entry: description, facts, sections, and links to the entries it mentions. |
 | `list_category` | optional `category`, `offset`, `limit` (default 50, max 100) | Every entry in a category: name, summary, URL. With no category, the categories and their sizes. |
+| `levelling_route` | `level` (1 to 60) | The regions, dungeons and quests that suit that level, with levels, quest givers, the quest that must come first, and URLs. |
 
 ### When search misses: words versus meaning
 
@@ -89,6 +91,34 @@ server instructions tell Claude to read the full entry instead of guessing.
 The `category` input ignores case, and accepts the start of a category name (`"hourglass"` matches
 "Hourglass run" and "Hourglass omen"). For an unknown category, the tool returns an error that lists
 the real categories, so that the model can correct its next call.
+
+### How levelling_route decides what suits a level
+
+"I'm level 23, where should I go?" needs three wiki pages: `regions.html`, `dungeons.html` (story
+dungeons, group dungeons, raids and the trial) and `quests.html` (188 quests). Every entry there has
+a Level fact, and the tool keeps what suits the level:
+
+| Kind | Suits level N when | Level fact on the wiki |
+|---|---|---|
+| Region | its range includes N | `Levels: 18 to 26` |
+| Dungeon | its level is within 2 of N | `Level: 22` |
+| Dungeon that scales | N is inside the range it scales over | `Level: Your party's own (its average), from 10 to 60` |
+| Quest | its level is within 2 of N, and a level N character can already take it | `Level: 23 (you can take it from level 20)` |
+
+Things to know:
+
+- **The result states its own rule** (`rule`), so Claude can tell the player what "suited" means.
+- **Quests are cut at 20**, with `quests_not_shown` saying how many more there were. Up to 24 quests
+  suit a single level (level 50).
+- **Region ranges stop at level 34**, but later content still takes place in those regions. Above
+  34 no region's range fits, so the tool says so and names the regions where the listed quests are,
+  from their Region facts.
+- **"Can already take it" removes nothing on today's wiki**: every quest opens at least 3 levels
+  below its own level, so any quest within 2 levels is open. The check stays as a safeguard for later
+  game releases.
+- **The tool doesn't say which quests are main story.** Many quest ids start with `quest-ms`, but
+  nothing on the wiki says what that means, so the tool doesn't guess.
+- It reads each page once (`WikiEntryParser::entries()`). A call takes about a quarter of a second.
 
 ### What get_wiki_entry is for
 
@@ -332,6 +362,7 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `SearchWikiToolTest` | How results are ranked, the category filter, the result limit, the " …" on cut summaries, and HTML codes such as `&#x2019;` |
 | `GetWikiEntryToolTest` | Different ways of writing a URL, names that several entries share, suggestions for near misses, refusing other websites, and shortening long output |
 | `ListCategoryToolTest` | The list of categories and their sizes, pages of results for big categories, category labels, and cut summaries |
+| `LevellingRouteToolTest` | Which regions, dungeons and quests suit a level: both ends of a region's range, dungeons 2 levels away and not 3, a dungeon that scales, the 20-quest cut, the note when no region fits, and refused levels |
 | `ServerToolTest` | The server list: each server's fields, the list without the object around it, and a definition with no inputs |
 | `ToolDefinitionsTest` | Every tool's definition: the name matches the tool, the description isn't empty, the input schema is a JSON object, every input has a type and a description, and every required input exists |
 | `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
@@ -345,8 +376,8 @@ You can ask two different questions about an MCP server, and these tests answer 
 
 ### Saved copies of the pages (fixtures)
 
-The offline tests don't use the live website. They use saved copies of seven wiki pages and
-`servers.json` in `tests/fixtures/` (about 900 KB, committed to git). Saved test data like this is called a
+The offline tests don't use the live website. They use saved copies of eight wiki pages and
+`servers.json` in `tests/fixtures/` (about 1.5 MB, committed to git). Saved test data like this is called a
 fixture. When the environment variable `ALDERVAST_FIXTURES` is set, `AldervastSite` reads pages
 from that folder and doesn't download anything. Each offline test sets it before it runs. As a
 result, the tests give the same result every time, work offline, and don't fail because the

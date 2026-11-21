@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Mcp;
+
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\Tools;
+
 /**
  * Tests the MCP server in the same way that Claude Desktop uses it. Each test starts mcp-server.php
  * as a separate process, writes JSON-RPC requests to its standard input, and reads the replies from
@@ -28,7 +33,7 @@ final class McpServerTest extends FixtureTestCase
     {
         $env = ['ALDERVAST_FIXTURES' => self::FIXTURES, 'ALDERVAST_TOOL_LOG' => $this->toolLog] + getenv();
         $process = proc_open(
-            [PHP_BINARY, dirname(__DIR__) . '/mcp-server.php'],
+            [PHP_BINARY, dirname(__DIR__, 2) . '/mcp-server.php'],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             null,
@@ -120,7 +125,7 @@ final class McpServerTest extends FixtureTestCase
         [$reply] = $this->talk(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list']);
         $tools = $reply['result']['tools'];
 
-        // The server must offer exactly the tools in src/Tools.php, in the same order.
+        // The server must offer exactly the tools in src/Tools/Tools.php, in the same order.
         $this->assertSame(array_keys(Tools::byName()), array_column($tools, 'name'));
         foreach ($tools as $tool) {
             // In MCP this field is called inputSchema. The Messages API name, input_schema, must not appear here.

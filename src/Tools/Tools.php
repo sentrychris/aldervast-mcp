@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tools;
+
 /**
  * The list of every tool in this project, and the instructions that go with them.
  *

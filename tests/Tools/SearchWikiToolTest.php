@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\SearchWikiTool;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**

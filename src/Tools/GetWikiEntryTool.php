@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tools;
+
+use InvalidArgumentException;
+use RuntimeException;
+
 /**
  * The get_wiki_entry tool: one full wiki entry as clean JSON.
  *
@@ -90,7 +95,7 @@ final class GetWikiEntryTool
         // Put the name, subtitle and URL first, so that the JSON is easy to read from the top.
         $entry = ['name' => $entry['name'], 'sub' => $entry['sub'], 'url' => AldervastSite::url($location)] + $entry;
 
-        return pretty(self::shrink($entry));
+        return Json::pretty(self::shrink($entry));
     }
 
     /**
@@ -146,7 +151,7 @@ final class GetWikiEntryTool
                     . 'again with one of their URLs.';
         }
 
-        return pretty([
+        return Json::pretty([
             'found' => false,
             'message' => $message,
             'matches' => array_map(

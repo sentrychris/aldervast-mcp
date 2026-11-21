@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\AldervastSite;
+use Aldervast\Tools\WikiEntryParser;
+use InvalidArgumentException;
+
 /**
  * WikiEntryParser: Takes HTML and returns a structured array.
  */

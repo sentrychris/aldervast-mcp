@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Eval;
+
+use Aldervast\Eval\EvalScore;
 use PHPUnit\Framework\TestCase;
 
 /**

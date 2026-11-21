@@ -2,10 +2,16 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Agent;
+
+use Aldervast\Agent\AgentLoop;
+use Aldervast\Agent\AgentLoopError;
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\Tools;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;

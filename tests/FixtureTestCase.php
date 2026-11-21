@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests;
+
 use PHPUnit\Framework\TestCase;
 
 /**

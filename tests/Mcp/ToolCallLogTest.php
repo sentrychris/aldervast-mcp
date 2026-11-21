@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Mcp;
+
+use Aldervast\Mcp\ToolCallLog;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -103,6 +106,15 @@ final class ToolCallLogTest extends TestCase
         (new ToolCallLog(__FILE__ . '/no/such/folder/log.jsonl', 'abc123'))->record('search_wiki', [], '', false, 0.0);
 
         $this->assertFileDoesNotExist(__FILE__ . '/no/such/folder/log.jsonl');
+    }
+
+    public function test_the_default_log_is_in_the_project_root(): void
+    {
+        // The path is built from this class's own folder, so moving the class would move the log
+        // without anything else noticing.
+        $this->assertSame('tool-calls.jsonl', basename(ToolCallLog::DEFAULT_FILE));
+        $this->assertSame('logs', basename(dirname(ToolCallLog::DEFAULT_FILE)));
+        $this->assertSame(realpath(dirname(__DIR__, 2)), realpath(dirname(ToolCallLog::DEFAULT_FILE, 2)));
     }
 
     public function test_the_environment_variable_chooses_the_file_or_turns_the_log_off(): void

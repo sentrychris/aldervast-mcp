@@ -18,17 +18,20 @@
  *   echo {"jsonrpc":"2.0","id":1,"method":"tools/list"} | php mcp-server.php
  */
 
+use Aldervast\Mcp\ToolCallLog;
+use Aldervast\Tools\Tools;
+
 require __DIR__ . '/vendor/autoload.php';
 
 // By default, PHP on the command line prints warnings to stdout, which would break the protocol.
 // Send them to stderr instead.
 ini_set('display_errors', 'stderr');
 
-// Every tool that this server offers, keyed by tool name. The list itself is in src/Tools.php.
+// Every tool that this server offers, keyed by tool name. The list itself is in src/Tools/Tools.php.
 $tools = Tools::byName();
 
 // Every tool call is written to logs/tool-calls.jsonl, so you can see which tools Claude used and
-// in what order. "composer log" shows it. See src/ToolCallLog.php.
+// in what order. "composer log" shows it. See src/Mcp/ToolCallLog.php.
 $log = ToolCallLog::fromEnvironment();
 
 function reply(int|string $id, array $result): void
@@ -65,7 +68,7 @@ while (($line = fgets(STDIN)) !== false) {
                 'protocolVersion' => $msg['params']['protocolVersion'] ?? '2025-06-18',
                 'capabilities' => ['tools' => (object) []],
                 'serverInfo' => ['name' => 'aldervast', 'version' => '1.0.0'],
-                // Guidance for the tools as a whole; see Tools::INSTRUCTIONS in src/Tools.php.
+                // Guidance for the tools as a whole; see Tools::INSTRUCTIONS in src/Tools/Tools.php.
                 'instructions' => Tools::INSTRUCTIONS,
             ]);
             break;

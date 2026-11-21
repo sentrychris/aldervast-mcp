@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Mcp;
+
 /**
  * Writes one line to a log file for every tool call that the MCP server runs: the time, the tool,
  * its input, the size of the result, whether it failed, and how long it took.
@@ -21,7 +23,8 @@ declare(strict_types=1);
  */
 final class ToolCallLog
 {
-    public const DEFAULT_FILE = __DIR__ . '/../logs/tool-calls.jsonl';
+    /** logs/ in the project root, two folders up from this file (src/Mcp/). ToolCallLogTest checks it. */
+    public const DEFAULT_FILE = __DIR__ . '/../../logs/tool-calls.jsonl';
 
     /** A failed call's error message is kept, but cut to this many characters. */
     private const MAX_ERROR_CHARS = 200;

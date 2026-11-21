@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\AldervastSite;
+use RuntimeException;
+
 /**
  * Tests for AldervastSite: building URLs and file names, and reading saved copies of pages.
  *
@@ -9,6 +15,14 @@ declare(strict_types=1);
  */
 final class AldervastSiteTest extends FixtureTestCase
 {
+    public function test_the_cache_is_in_the_project_root(): void
+    {
+        // The path is built from this class's own folder, so moving the class would move the cache
+        // without this test noticing anything else.
+        $this->assertSame('cache', basename(AldervastSite::CACHE_DIR));
+        $this->assertSame(realpath(dirname(__DIR__, 2)), realpath(dirname(AldervastSite::CACHE_DIR)));
+    }
+
     public function test_url_joins_the_path_with_exactly_one_slash(): void
     {
         $this->assertSame('https://aldervast.online/wiki/a.html', AldervastSite::url('/wiki/a.html'));

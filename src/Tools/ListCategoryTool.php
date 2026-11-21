@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tools;
+
 /**
  * The list_category tool: every wiki entry in one category, such as all world bosses or all mounts.
  *
@@ -87,7 +89,7 @@ final class ListCategoryTool
             $result['next_offset'] = $offset + count($page);
         }
 
-        return pretty($result);
+        return Json::pretty($result);
     }
 
     /** Every category with its number of entries, biggest first. */
@@ -96,7 +98,7 @@ final class ListCategoryTool
         $counts = array_count_values(array_column(SearchWikiTool::index(), 'c'));
         arsort($counts);
 
-        return pretty([
+        return Json::pretty([
             'message' => 'Call list_category again with one of these categories.',
             'categories' => $counts,
         ]);

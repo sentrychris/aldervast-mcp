@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tools;
+
+use InvalidArgumentException;
+
 /**
  * The search_wiki tool: finds entries in the Aldervast wiki.
  *
@@ -107,7 +111,7 @@ final class SearchWikiTool
                 . 'category, or browse a category with list_category.';
         }
 
-        return pretty($result);
+        return Json::pretty($result);
     }
 
     /** The whole search index: about 1,840 entries of {n, c, u, s, k}. Cached by AldervastSite. */
@@ -261,7 +265,7 @@ final class SearchWikiTool
      * model's guess, the code gives the same result every time.
      *
      * The mark on its own doesn't say what the model should do. That rule ("don't fill in the
-     * missing words; call get_wiki_entry instead") is in Tools::INSTRUCTIONS (src/Tools.php) and in this
+     * missing words; call get_wiki_entry instead") is in Tools::INSTRUCTIONS (src/Tools/Tools.php) and in this
      * tool's description above. The model gets those when the client connects to the server, and
      * later sees the mark in a result.
      */

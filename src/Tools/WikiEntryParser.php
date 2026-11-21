@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tools;
+
+use DOMDocument;
+use DOMElement;
+use DOMNode;
+use DOMText;
+use DOMXPath;
+use InvalidArgumentException;
+
 /**
  * Turns one entry on an Aldervast wiki page into a plain PHP array.
  *

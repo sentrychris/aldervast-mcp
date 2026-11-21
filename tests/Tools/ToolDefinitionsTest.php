@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tools\Tools;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Checks the definition of every tool in src/Tools.php: the name, description and input schema
+ * Checks the definition of every tool in src/Tools/Tools.php: the name, description and input schema
  * that the model gets.
  *
  * A mistake in a definition can make a client reject the tool, or make the model call it with the

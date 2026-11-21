@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Agent;
+
+use RuntimeException;
+
 /**
  * A run of AgentLoop that failed before the model gave an answer. $kind says why, so that the eval
  * can keep plumbing failures apart from wrong answers:

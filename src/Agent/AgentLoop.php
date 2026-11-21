@@ -2,11 +2,18 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Agent;
+
+use Aldervast\Tools\Json;
+use Aldervast\Tools\Tools;
+use Closure;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
+use RuntimeException;
+use Throwable;
 
 /**
  * The agent loop: the whole "agent" in one class. agent.php uses it to print every step, and the
@@ -109,7 +116,7 @@ final class AgentLoop
                 'max_tokens' => 4096,
                 'output_config' => ['effort' => 'low'], // Simple questions: less thinking, faster and cheaper.
                 'fallbacks' => 'default',
-                // The same guidance that the MCP server sends to Claude Desktop (see src/Tools.php).
+                // The same guidance that the MCP server sends to Claude Desktop (see src/Tools/Tools.php).
                 'system' => Tools::INSTRUCTIONS,
                 'tools' => $definitions,
                 'messages' => $messages,
@@ -191,7 +198,7 @@ final class AgentLoop
                 }
 
                 $result['calls'][] = ['tool' => $block['name'], 'input' => $input, 'result' => $output, 'is_error' => $isError];
-                $result['transcript'][] = ['role' => 'tool_call', 'name' => $block['name'], 'content' => pretty((object) $input)];
+                $result['transcript'][] = ['role' => 'tool_call', 'name' => $block['name'], 'content' => Json::pretty((object) $input)];
                 $result['transcript'][] = ['role' => 'tool_result', 'name' => $block['name'], 'content' => $output];
 
                 // tool_use_id links this result to the exact request that the model made.

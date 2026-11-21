@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\ServerTool;
+
 /**
  * Tests for list_servers: the list of public game servers, read from servers.json.
  */

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Eval;
+
 /**
  * Grading for the eval (evals/run.php): turns one run of the agent loop into scores, and a set of
  * results into a summary. Everything here is plain arithmetic on recorded data, with no API calls,

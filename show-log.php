@@ -9,8 +9,10 @@ declare(strict_types=1);
  *   composer log          the last 50 calls
  *   composer log -- 200   the last 200 calls
  *
- * src/ToolCallLog.php writes the log; this script only reads it.
+ * src/Mcp/ToolCallLog.php writes the log; this script only reads it.
  */
+
+use Aldervast\Mcp\ToolCallLog;
 
 require __DIR__ . '/vendor/autoload.php';
 

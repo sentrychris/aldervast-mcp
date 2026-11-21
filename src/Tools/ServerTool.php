@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tools;
+
 /**
  * The list_servers tool, and the first tool in this project.
  *
@@ -51,6 +53,6 @@ final class ServerTool
     {
         $data = AldervastSite::json(self::PATH, maxAgeSeconds: 0);
 
-        return pretty($data['servers'] ?? []);
+        return Json::pretty($data['servers'] ?? []);
     }
 }

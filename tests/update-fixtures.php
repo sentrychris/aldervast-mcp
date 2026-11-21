@@ -19,6 +19,8 @@ declare(strict_types=1);
  * website. This script never downloads or overwrites it.
  */
 
+use Aldervast\Tools\AldervastSite;
+
 require __DIR__ . '/../vendor/autoload.php';
 
 // The pages that the tests use. Keep this list short: each page means one more download from the

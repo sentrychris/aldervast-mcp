@@ -8,7 +8,7 @@ declare(strict_types=1);
  *
  * Code coverage means: while the tests run, Xdebug (or PCOV) records which lines of src/ were
  * executed. PHPUnit writes the result to .phpunit.cache/clover.xml. This script reads that file,
- * and fails if any tool in src/Tools.php has less than MIN_PERCENT of its lines covered.
+ * and fails if any tool in src/Tools/Tools.php has less than MIN_PERCENT of its lines covered.
  *
  * Why per tool: EveryToolHasTestsTest checks that a tool has a test class that calls run(). This
  * script checks that those tests actually run most of the tool's code. A tool whose tests only touch
@@ -17,6 +17,8 @@ declare(strict_types=1);
  * Other classes in src/ are shown for information only. For example, most of AldervastSite downloads
  * from the website, so only the live tests can run that code.
  */
+
+use Aldervast\Tools\Tools;
 
 require __DIR__ . '/../vendor/autoload.php';
 

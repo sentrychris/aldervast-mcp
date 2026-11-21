@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\ListCategoryTool;
+
 /**
  * Tests for list_category: listing the entries in one category, splitting a big category 
  * into pages, and listing all categories with their sizes.

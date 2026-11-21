@@ -24,29 +24,40 @@ is paused; this project only *reads* public game data.
 
 ## Layout
 
+`src/` has four parts, one folder and one namespace each. They depend on each other in one direction
+only, and `tests/ArchitectureTest.php` enforces it: `Tools <- Mcp`, `Tools <- Agent <- Eval`. Keep
+`src/Tools/` free of anything from the other three: it is the product that the MCP server offers.
+
 ```
+src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.php and the eval
+  Tools.php           the list of every tool (Tools::ALL) and Tools::INSTRUCTIONS
+  ServerTool.php      the list_servers tool: definition() + run()
+  SearchWikiTool.php  the search_wiki tool: scores wiki/search.json entries against a query
+  GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
+  ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
+  WikiEntryParser.php one entry's HTML -> array (article or table row)
+  AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
+  Json.php            Json::pretty(): the JSON layout of every tool's output
+src/Mcp/            Aldervast\Mcp: the MCP server's own code
+  ToolCallLog.php     writes one JSON line per tool call to logs/tool-calls.jsonl (gitignored)
+src/Agent/          Aldervast\Agent: the agent loop (Messages API over Guzzle); agent.php and the eval use it
+  AgentLoop.php       the loop
+  AgentLoopError.php  why a run failed: api_error, timeout or model_mismatch
+  Env.php             Env::load() reads .env; Env::get() prefers real environment variables
+src/Eval/           Aldervast\Eval: the eval's grading
+  EvalScore.php       scores per run, the summary with 95% intervals, cost
+mcp-server.php      stdio MCP server: initialize, tools/list, tools/call, ping (stays at the root:
+                    .mcp.json and Claude Desktop's config point here)
+show-log.php        prints the tool call log, grouped by session ("composer log")
 agent.php           runs AgentLoop on one question and prints every step (the learning demo)
-src/AgentLoop.php   the agent loop (Messages API over Guzzle); agent.php and the eval both use it
-src/AgentLoopError.php  why a run failed: api_error, timeout or model_mismatch
-src/EvalScore.php   the eval's grading: scores per run, the summary with 95% intervals, cost
 evals/cases.json    the eval's 28 questions and expected answers
 evals/run.php       runs the eval (PAID API); results in .claude/hillclimb/wiki-questions/<variant>/
 evals/build-report-lite.mjs  builds report.html from those results ("composer eval:report"); copied from the claude-api skill
-mcp-server.php      stdio MCP server: initialize, tools/list, tools/call, ping
-src/helpers.php     load_env(), pretty(), step()
-src/Tools.php       the list of every tool; mcp-server.php, agent.php and the tests all read it
-src/ServerTool.php  the list_servers tool: definition() + run()
-src/SearchWikiTool.php  the search_wiki tool: scores wiki/search.json entries against a query
-src/GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
-src/WikiEntryParser.php   one entry's HTML -> array (article or table row)
-src/ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
-src/AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
-src/ToolCallLog.php     writes one JSON line per tool call to logs/tool-calls.jsonl (gitignored)
-show-log.php            prints that log, grouped by session ("composer log")
-tests/              PHPUnit: offline tests on tests/fixtures/ (saved wiki pages), plus a "live" group
+tests/              PHPUnit, namespace Aldervast\Tests, in the same four folders as src/; offline tests on
+                    tests/fixtures/ (saved wiki pages), plus a "live" group
 phpunit.xml         excludes the live group by default; <source> sets what code coverage measures (src/)
 tests/check-coverage.php  fails "composer test:coverage" if any tool has under 80% line coverage
-composer.json       PHP >= 8.1, guzzlehttp/guzzle ^7.8; classes load by PSR-4 from src/, helpers.php by "files"
+composer.json       PHP >= 8.1, guzzlehttp/guzzle ^7.8; PSR-4: Aldervast\ -> src/, Aldervast\Tests\ -> tests/
 infection.json5     settings for Infection (mutation testing), including the minimum score
 .env.example        ANTHROPIC_API_KEY placeholder (the real .env is gitignored)
 .mcp.json           registers mcp-server.php with Claude Code for this folder
@@ -86,7 +97,7 @@ tools again. Ask before running `agent.php`, because every run calls the paid AP
 
 ## How to add a tool
 
-Every tool is one class in `src/`, shaped like `ServerTool`:
+Every tool is one class in `src/Tools/`, in the namespace `Aldervast\Tools`, shaped like `ServerTool`:
 
 - `const NAME` in snake_case, e.g. `search_wiki`.
 - `definition()` returns `name`, `description` and `input_schema` (JSON Schema). Write the description
@@ -95,20 +106,21 @@ Every tool is one class in `src/`, shaped like `ServerTool`:
 - `run(array $input): string` does the work and returns text (often JSON) for the model to read.
   Throw on failure; both callers turn exceptions into an error result.
 
-Then add the class to `Tools::ALL` in `src/Tools.php`. `mcp-server.php`, `agent.php` and the tests all
-read that list, so nothing else needs to change. Composer finds the class by itself: `composer.json`
-maps each class name to `src/<ClassName>.php` (PSR-4), so the file name must match the class name.
-Only `src/helpers.php`, which holds plain functions, is loaded by name under `autoload.files`. Don't add
-classes there: Composer would load them at startup, before Infection can swap in its changed copies,
-and mutation testing would quietly stop working.
+Then add the class to `Tools::ALL` in `src/Tools/Tools.php`. `mcp-server.php`, `agent.php`, the eval
+and the tests all read that list, so nothing else needs to change. Composer finds the class by itself:
+`composer.json` maps the namespace `Aldervast\Tools` to `src/Tools/` (PSR-4), so the file name must
+match the class name. Don't add files under `autoload.files` in `composer.json`: Composer would load
+them at startup, before Infection can swap in its changed copies, and mutation testing would quietly
+stop working. Use a class with static methods instead, as `Json` and `Env` do.
 
 Download from the website through `AldervastSite::get()` or `json()`, not with your own Guzzle call,
 so that the request uses the cache, sends the project's User-Agent, and can read the saved copies in
 the tests. For data that must always be fresh, pass a maximum age of 0, as `ServerTool` does.
 
-Write a test class in `tests/` that extends `FixtureTestCase`. If the tool reads a page that isn't
-saved yet, add the page to `tests/update-fixtures.php` and run that script. Then run `composer test`.
-This is checked: `EveryToolHasTestsTest` fails until `tests/<ToolClass>Test.php` exists, has at least
+Write a test class in `tests/Tools/`, in the namespace `Aldervast\Tests\Tools`, that extends
+`Aldervast\Tests\FixtureTestCase`. If the tool reads a page that isn't saved yet, add the page to
+`tests/update-fixtures.php` and run that script. Then run `composer test`.
+This is checked: `EveryToolHasTestsTest` fails until `tests/Tools/<ToolClass>Test.php` exists, has at least
 three test methods of its own, and calls `<ToolClass>::run(`. `ToolDefinitionsTest` also checks the
 new tool's definition. Then run `composer test:coverage`: it fails until the tool's tests cover at least
 80% of its lines. Then run `composer test:mutation`: it fails if the mutation score drops below 90%.
@@ -129,7 +141,7 @@ After that, try the tool by piping a `tools/call` request into the server, and f
 - `tools/call` returns `{"content":[{"type":"text","text":"..."}],"isError":false}`. Report a tool
   failure with `isError: true` in a normal result. Use a JSON-RPC `error` only for protocol problems
   such as an unknown method or an unknown tool.
-- `initialize` returns server-wide `instructions` (`Tools::INSTRUCTIONS` in `src/Tools.php`; `AgentLoop`
+- `initialize` returns server-wide `instructions` (`Tools::INSTRUCTIONS` in `src/Tools/Tools.php`; `AgentLoop`
   sends the same text as its system prompt).
   Keep it and every tool description general: no facts about specific game content (e.g. "deer means
   stag"). Such examples leak answers into tests and don't scale; the model supplies synonyms itself.
@@ -187,9 +199,9 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
 
 ## Ideas for the next tools, roughly easiest first
 
-1. ~~`search_wiki(query, category?)`~~: done (`src/SearchWikiTool.php`).
-2. ~~`get_wiki_entry(url_or_name, category?)`~~: done (`src/GetWikiEntryTool.php`, `src/WikiEntryParser.php`).
-3. ~~`list_category(category?)`~~: done (`src/ListCategoryTool.php`). It also covers search misses caused by
+1. ~~`search_wiki(query, category?)`~~: done (`src/Tools/SearchWikiTool.php`).
+2. ~~`get_wiki_entry(url_or_name, category?)`~~: done (`src/Tools/GetWikiEntryTool.php`, `src/Tools/WikiEntryParser.php`).
+3. ~~`list_category(category?)`~~: done (`src/Tools/ListCategoryTool.php`). It also covers search misses caused by
    wording ("big deer boss" vs "Moss Stag"): the model browses the category and matches by meaning. The
    heavier fix, semantic search with embeddings, needs a new provider and API key; ask Chris first.
 4. `levelling_route(level)`: dungeons, quests and regions suited to a level, from the Level facts.

@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tests\FixtureTestCase;
+use Aldervast\Tools\GetWikiEntryTool;
+use InvalidArgumentException;
+use RuntimeException;
+
 /**
  * Tests for get_wiki_entry: how it works out which entry the caller means, and which fields it returns.
  */

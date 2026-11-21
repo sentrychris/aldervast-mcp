@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tests\Tools;
+
+use Aldervast\Tools\GetWikiEntryTool;
+use Aldervast\Tools\SearchWikiTool;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 

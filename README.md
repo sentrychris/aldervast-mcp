@@ -5,24 +5,44 @@ Claude together with a set of tools, and prints every step of the conversation, 
 exactly what is sent and received. The same tools also run as an MCP server, so that apps such as
 Claude Desktop can use them.
 
+The code in `src/` is in four parts, one folder and one PHP namespace each:
+
 ```
-agent.php                runs the agent loop on one question and prints every step
-src/AgentLoop.php        the agent loop itself (read it from top to bottom)
-mcp-server.php           the same tools, offered as an MCP server (step 2 below)
-src/Tools.php            the list of every tool; agent.php, mcp-server.php and the tests all read it
-src/ServerTool.php       the list_servers tool: its definition, and the PHP that runs it
-src/SearchWikiTool.php   the search_wiki tool: searches the game wiki's index
-src/GetWikiEntryTool.php the get_wiki_entry tool: returns one full wiki entry as JSON
-src/WikiEntryParser.php  turns the HTML of one wiki entry into an array (get_wiki_entry uses it)
-src/ListCategoryTool.php the list_category tool: lists every entry in one category, in pages
-src/AldervastSite.php    downloads files from aldervast.online, and keeps copies in cache/ for an hour
-src/ToolCallLog.php      writes every tool call that the MCP server runs to logs/tool-calls.jsonl
-show-log.php             prints that log as a readable list ("composer log")
-src/helpers.php          reads .env, and prints JSON in a readable layout
-tests/                   PHPUnit tests, with saved copies of wiki pages in tests/fixtures/ (see "Tests")
-evals/                   the eval: test questions, and the script that runs them (see "The eval")
-src/EvalScore.php        the eval's grading
+src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offers
+  Tools.php              the list of every tool, and the instructions that go with them
+  ServerTool.php         the list_servers tool: its definition, and the PHP that runs it
+  SearchWikiTool.php     the search_wiki tool: searches the game wiki's index
+  GetWikiEntryTool.php   the get_wiki_entry tool: returns one full wiki entry as JSON
+  ListCategoryTool.php   the list_category tool: lists every entry in one category, in pages
+  WikiEntryParser.php    turns the HTML of one wiki entry into an array (get_wiki_entry uses it)
+  AldervastSite.php      downloads files from aldervast.online, and keeps copies in cache/ for an hour
+  Json.php               prints JSON in a readable layout
+src/Mcp/       Aldervast\Mcp     the MCP server's own code
+  ToolCallLog.php        writes every tool call that the server runs to logs/tool-calls.jsonl
+src/Agent/     Aldervast\Agent   the agent loop, which talks to the Messages API
+  AgentLoop.php          the agent loop itself (read it from top to bottom)
+  AgentLoopError.php     why a run failed before Claude answered
+  Env.php                reads settings such as the API key from .env
+src/Eval/      Aldervast\Eval    the eval
+  EvalScore.php          the eval's grading
+
+mcp-server.php           the MCP server (step 2 below); uses src/Tools and src/Mcp
+show-log.php             prints the tool call log as a readable list ("composer log")
+agent.php                runs the agent loop on one question and prints every step; uses src/Agent
+evals/                   the eval's questions, and the script that runs them (see "The eval")
+tests/                   PHPUnit tests, in the same four folders (see "Tests")
 ```
+
+The parts depend on each other in one direction only. The MCP server and the agent loop each use
+the tools, the eval uses the agent loop, and the tools use none of the others:
+
+```
+Tools  <-  Mcp
+Tools  <-  Agent  <-  Eval
+```
+
+So `src/Tools/` is the whole MCP product, with no learning or measuring code mixed in.
+`tests/ArchitectureTest.php` fails if a part starts to use one that it shouldn't.
 
 ## The tools
 
@@ -99,7 +119,7 @@ returns the list of matches instead of guessing, and the model calls it again wi
 `category`. If no entry has exactly that name, the tool returns the closest search results.
 
 The tool downloads the page (and keeps a copy, like `search.json`). Then it finds the element whose
-`id` is the part of the URL after "#", and turns that element into JSON. `src/WikiEntryParser.php`
+`id` is the part of the URL after "#", and turns that element into JSON. `src/Tools/WikiEntryParser.php`
 handles the two forms that wiki entries take:
 
 - **Articles** (most pages): `name`, `sub` (kind and level), `description` (the lore), `facts` (the
@@ -184,11 +204,11 @@ whole conversation.
 normal text answer, printed as **FINAL ANSWER**.
 
 That's the entire "agent": a `for` loop around one HTTP call, where the model chooses which of your
-functions to call next. To add a tool, add its class to the list in `src/Tools.php` (see "How to
+functions to call next. To add a tool, add its class to the list in `src/Tools/Tools.php` (see "How to
 add a tool" in AGENTS.md). With several tools, the model can make several calls before it
 answers.
 
-The loop itself is in `src/AgentLoop.php`; `agent.php` only runs it and prints each step. Some
+The loop itself is in `src/Agent/AgentLoop.php`; `agent.php` only runs it and prints each step. Some
 settings there that are worth knowing about:
 
 - `claude-sonnet-5-5` is the model, and `effort: low` keeps a simple question quick and cheap.
@@ -214,7 +234,7 @@ exchange one JSON-RPC message per line over stdin and stdout. The script handles
 ### Server instructions
 
 Besides the tools, the server sends **instructions** in its `initialize` reply. This is a short
-paragraph (`Tools::INSTRUCTIONS` in `src/Tools.php`), which the client adds to Claude's
+paragraph (`Tools::INSTRUCTIONS` in `src/Tools/Tools.php`), which the client adds to Claude's
 context in every chat that uses the server. Each tool description says what one tool does. The
 instructions say when to use the server at all. They tell Claude that its own knowledge of
 Aldervast is unreliable, so it should look things up rather than answer from memory, and they give
@@ -318,8 +338,9 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `ToolCallLogTest` | The tool call log: one JSON line per call with every field, lines added to the end, errors kept but shortened, broken text still logged, and a file that can't be written doesn't stop the call |
 | `AgentLoopTest` | The agent loop, against recorded API responses (no paid calls): tool calls and results, the history sent back, retries and their waits, time limits, a different model answering, refusals, the five-turn limit |
 | `EvalScoreTest` | The eval's grading: a right run passes, "I don't know" fails everything, a right answer from memory doesn't pass, confidence intervals, cost |
-| `HelpersTest` | `env()`, `load_env()` and `pretty()` |
-| `EveryToolHasTestsTest` | That every tool in `src/Tools.php` has its own test class, with at least three tests that call the tool's `run()`. If someone adds a tool without tests, this test fails and says which file to create |
+| `JsonTest`, `EnvTest` | `Json::pretty()`, and `Env::load()` / `Env::get()` (a real environment variable wins over `.env`) |
+| `ArchitectureTest` | That `src/Tools/`, `src/Mcp/`, `src/Agent/` and `src/Eval/` use only the parts they are allowed to (see the diagram at the top) |
+| `EveryToolHasTestsTest` | That every tool in `src/Tools/Tools.php` has its own test class, with at least three tests that call the tool's `run()`. If someone adds a tool without tests, this test fails and says which file to create |
 | `McpServerTest` | The MCP protocol. It starts `mcp-server.php` as a separate process, as Claude Desktop does. Then it checks that the server writes only JSON-RPC to its output, doesn't reply to notifications, sends correct schemas, and reports tool failures with `isError` |
 
 ### Saved copies of the pages (fixtures)
@@ -434,7 +455,7 @@ Desktop or seen in the tool call log. Three ask about things that don't exist (a
 a werewolf boss), to check that Claude says no instead of inventing an answer. Every expected
 answer was checked against the wiki.
 
-**How each run is scored** (`src/EvalScore.php`), with no extra API calls:
+**How each run is scored** (`src/Eval/EvalScore.php`), with no extra API calls:
 
 | Score | Means |
 |---|---|

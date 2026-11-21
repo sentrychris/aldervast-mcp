@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 /**
- * The eval: runs every question in evals/cases.json through the agent loop (src/AgentLoop.php),
- * scores each answer (src/EvalScore.php), and prints the scores with their confidence intervals.
+ * The eval: runs every question in evals/cases.json through the agent loop (src/Agent/AgentLoop.php),
+ * scores each answer (src/Eval/EvalScore.php), and prints the scores with their confidence intervals.
  *
  * THIS CALLS THE PAID API. A full run is 28 questions x 2 runs; see README.md, under "The eval", for
  * what it costs. Ask before running it.
@@ -37,15 +37,21 @@ declare(strict_types=1);
  * of them stops the eval until it is approved again.
  */
 
+use Aldervast\Agent\AgentLoop;
+use Aldervast\Agent\AgentLoopError;
+use Aldervast\Agent\Env;
+use Aldervast\Eval\EvalScore;
+use Aldervast\Tools\Json;
+
 require __DIR__ . '/../vendor/autoload.php';
 
 // Where results go. ALDERVAST_EVAL_DIR can point somewhere else, so that a test of the runner itself
 // (against a fake API) never touches the real results or the harness approval.
 define('FLOW_DIR', getenv('ALDERVAST_EVAL_DIR') ?: __DIR__ . '/../.claude/hillclimb/wiki-questions');
 const CASES_FILE = __DIR__ . '/cases.json';
-const HARNESS_FILES = ['evals/run.php', 'src/AgentLoop.php', 'src/AgentLoopError.php', 'src/EvalScore.php', 'composer.lock'];
+const HARNESS_FILES = ['evals/run.php', 'src/Agent/AgentLoop.php', 'src/Agent/AgentLoopError.php', 'src/Eval/EvalScore.php', 'composer.lock'];
 
-load_env(__DIR__ . '/../.env');
+Env::load(__DIR__ . '/../.env');
 
 $options = getopt('', ['variant:', 'model:', 'reps:', 'only:', 'jobs:', 'timeout-s:', 'approve-harness', 'worker:', 'rep:']);
 $variant = $options['variant'] ?? 'baseline';
@@ -57,7 +63,7 @@ if (preg_match('/^(baseline|v\d+)$/', $variant) !== 1) {
     exit("--variant must be \"baseline\" or v1, v2, ... (the report only reads those names).\n");
 }
 
-$apiKey = env('ANTHROPIC_API_KEY');
+$apiKey = Env::get('ANTHROPIC_API_KEY');
 if ($apiKey === '' || str_contains($apiKey, 'your-key-here')) {
     exit("No API key. Copy .env.example to .env and paste your key from https://console.anthropic.com\n");
 }
@@ -148,7 +154,7 @@ printSummary($dir, $only, $model, microtime(true) - $started);
 /** Runs one case once, scores it, and writes the result (or the failure). Returns the exit code. */
 function runOne(array $case, int $rep, string $variant, string $model, string $apiKey, float $timeLimit, string $dir): int
 {
-    $loop = new AgentLoop(AgentLoop::client($apiKey, env('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')), $model);
+    $loop = new AgentLoop(AgentLoop::client($apiKey, Env::get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')), $model);
     $label = "{$case['id']} run {$rep}";
 
     try {
@@ -177,7 +183,7 @@ function runOne(array $case, int $rep, string $variant, string $model, string $a
     if (!is_dir(dirname($traceFile))) {
         mkdir(dirname($traceFile), 0777, true);
     }
-    file_put_contents($traceFile, pretty($run['transcript']));
+    file_put_contents($traceFile, Json::pretty($run['transcript']));
 
     // The route: each tool call in order, so that a row shows how Claude got to its answer.
     $route = array_map(
@@ -319,7 +325,7 @@ function writeStateFile(): void
     foreach (EvalScore::PRICES as $id => $p) {
         $prices[$id] = ['in' => $p['input'], 'out' => $p['output']];
     }
-    file_put_contents($file, pretty([
+    file_put_contents($file, Json::pretty([
         'metrics' => EvalScore::METRICS,
         'perf_fields' => [
             ['id' => 'tool_calls', 'label' => 'Tool calls'],

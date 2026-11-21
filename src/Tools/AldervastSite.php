@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Aldervast\Tools;
+
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use RuntimeException;
 
 /**
  * Reads files from the public Aldervast website (https://aldervast.online), and keeps copies on disk.
@@ -23,6 +26,9 @@ final class AldervastSite
     public const MAX_AGE_SECONDS = 3600;
 
     private const USER_AGENT = 'aldervast-mcp/1.0';
+
+    /** cache/ in the project root, two folders up from this file (src/Tools/). AldervastSiteTest checks it. */
+    public const CACHE_DIR = __DIR__ . '/../../cache';
 
     /** Turns a site path such as "wiki/dungeons.html#dungeon-hollow_crypt" into a full URL. */
     public static function url(string $path): string
@@ -56,7 +62,7 @@ final class AldervastSite
             return (string) file_get_contents($fixture);
         }
 
-        $file = dirname(__DIR__) . '/cache/' . self::fileName($path);
+        $file = self::CACHE_DIR . '/' . self::fileName($path);
 
         if (is_file($file) && time() - filemtime($file) < $maxAgeSeconds) {
             return (string) file_get_contents($file);

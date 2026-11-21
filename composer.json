@@ -1,0 +1,12 @@
+{
+    "name": "chris/aldervast-mcp",
+    "description": "A tiny, readable demo of the Claude tool-calling loop (and the same tool as an MCP server).",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "autoload": {
+        "files": ["src/helpers.php", "src/AldervastSite.php", "src/ServerTool.php", "src/SearchWikiTool.php"]
+    }
+}

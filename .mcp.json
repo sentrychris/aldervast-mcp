@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "aldervast": {
+      "type": "stdio",
+      "command": "php",
+      "args": [
+        "C:\\Users\\chris\\workspace\\aldervast-mcp\\mcp-server.php"
+      ]
+    }
+  }
+}

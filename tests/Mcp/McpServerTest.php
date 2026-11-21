@@ -106,8 +106,52 @@ final class McpServerTest extends FixtureTestCase
         $this->assertSame('2025-06-18', $reply['result']['protocolVersion']);
         $this->assertSame('aldervast', $reply['result']['serverInfo']['name']);
         $this->assertStringContainsString('rather than answering from memory', $reply['result']['instructions']);
-        // Capabilities must be JSON objects ({}), not arrays ([]).
-        $this->assertStringContainsString('"capabilities":{"tools":{}}', $this->stdout);
+        // Capabilities must be JSON objects ({}), not arrays ([]). A client only asks for resources
+        // and prompts if they are declared here.
+        $this->assertStringContainsString('"capabilities":{"tools":{},"resources":{},"prompts":{}}', $this->stdout);
+    }
+
+    public function test_resources_can_be_listed_and_read(): void
+    {
+        [$list, $read] = $this->talk(
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'resources/list'],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'resources/read', 'params' => ['uri' => 'aldervast://wiki/classes.html']],
+        );
+
+        $this->assertContains('aldervast://wiki/classes.html', array_column($list['result']['resources'], 'uri'));
+        $this->assertArrayNotHasKey('nextCursor', $list['result']);
+        $this->assertSame('aldervast://wiki/classes.html', $read['result']['contents'][0]['uri']);
+        $this->assertStringContainsString("## Ravager\n", $read['result']['contents'][0]['text']);
+    }
+
+    public function test_an_unknown_resource_is_the_resource_not_found_error_with_its_uri(): void
+    {
+        [$reply] = $this->talk(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'resources/read', 'params' => ['uri' => 'aldervast://../.env']]);
+
+        $this->assertSame(['code' => -32002, 'message' => 'Resource not found', 'data' => ['uri' => 'aldervast://../.env']], $reply['error']);
+    }
+
+    public function test_prompts_can_be_listed_and_got_with_their_arguments_filled_in(): void
+    {
+        [$list, $get] = $this->talk(
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'prompts/list'],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'prompts/get', 'params' => ['name' => 'plan_levelling', 'arguments' => ['level' => '25']]],
+        );
+
+        $this->assertSame(['plan_build', 'plan_levelling'], array_column($list['result']['prompts'], 'name'));
+        $this->assertSame('user', $get['result']['messages'][0]['role']);
+        $this->assertStringContainsString('levelling_route with level 25', $get['result']['messages'][0]['content']['text']);
+    }
+
+    public function test_an_unknown_prompt_or_a_missing_argument_is_an_invalid_params_error(): void
+    {
+        [$unknown, $missing] = $this->talk(
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'prompts/get', 'params' => ['name' => 'nope']],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'prompts/get', 'params' => ['name' => 'plan_build', 'arguments' => (object) []]],
+        );
+
+        $this->assertSame(-32602, $unknown['error']['code']);
+        $this->assertSame('Missing argument: class', $missing['error']['message']);
     }
 
     public function test_notifications_get_no_reply(): void

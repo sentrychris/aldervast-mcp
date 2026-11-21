@@ -12,7 +12,8 @@ A small PHP project that does two jobs:
    every step.
 2. **An MCP server for the game Aldervast.** `mcp-server.php` exposes the same tools over MCP (stdio,
    JSON-RPC 2.0), so Claude Code, the Claude desktop app or any MCP client can answer questions about the
-   game: its servers, world, quests, items, dungeons and so on.
+   game: its servers, world, quests, items, dungeons and so on. It also offers each wiki page as a
+   resource and two prompts (README.md, "Resources and prompts").
 
 **The goal now is to grow the MCP server's tools** using the public game knowledge on
 https://aldervast.online (the site and its wiki). The owner, Chris, is a senior Laravel/PHP and AWS
@@ -43,6 +44,8 @@ src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.ph
   Json.php            Json::pretty(): the JSON layout of every tool's output
 src/Mcp/            Aldervast\Mcp: the MCP server's own code
   ToolCallLog.php     writes one JSON line per tool call to logs/tool-calls.jsonl (gitignored)
+  WikiPages.php       MCP resources: one per wiki page in search.json, aldervast://wiki/<page>.html, read as Markdown
+  Prompts.php         MCP prompts: plan_build and plan_levelling; their text is for the model
 src/Agent/          Aldervast\Agent: the agent loop (Messages API over Guzzle); agent.php and the eval use it
   AgentLoop.php       the loop
   AgentLoopError.php  why a run failed: api_error, timeout or model_mismatch
@@ -144,6 +147,13 @@ After that, try the tool by piping a `tools/call` request into the server, and f
 - `tools/call` returns `{"content":[{"type":"text","text":"..."}],"isError":false}`. Report a tool
   failure with `isError: true` in a normal result. Use a JSON-RPC `error` only for protocol problems
   such as an unknown method or an unknown tool.
+- Resources and prompts have no `isError`; their failures are JSON-RPC errors. The spec's codes:
+  `-32002` (with `data.uri`) for a resource that doesn't exist, `-32602` for an unknown prompt or a
+  missing argument, `-32603` for anything else. Prompt arguments always arrive as strings.
+- A client only uses what `initialize` declares under `capabilities`. A new kind of feature (e.g.
+  resource templates, or `listChanged` notifications) must be declared there, as an object (`{}`).
+- Prompt text (`src/Mcp/Prompts.php`) is text for the model, like a tool description: the same
+  rules apply, and `PromptsTest` checks it word for word.
 - `initialize` returns server-wide `instructions` (`Tools::INSTRUCTIONS` in `src/Tools/Tools.php`; `AgentLoop`
   sends the same text as its system prompt).
   Keep it and every tool description general: no facts about specific game content (e.g. "deer means
@@ -215,8 +225,10 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
    `quest-ms` ids).
 5. ~~`latest_release()`~~: done (`src/Tools/LatestReleaseTool.php`). Returns the first item of the page's
    `<ol class="timeline">` (newest first), using the page's default cache age of an hour.
-6. MCP **resources** (`resources/list`, `resources/read`) for whole pages, and **prompts**
-   (e.g. "plan my build"), once the tools are solid. Declare each capability in `initialize`.
+6. ~~MCP **resources** for whole pages, and **prompts**~~: done (`src/Mcp/WikiPages.php`,
+   `src/Mcp/Prompts.php`). Possible next steps: a resource template (`resources/templates/list`) for
+   one entry, since some whole pages are 40,000 to 70,000 tokens; prompt argument completion
+   (`completion/complete`), e.g. offering the class names.
 
 **Hard; don't start without asking:** a live `server_status` tool. The status query runs over ENet (a
 UDP protocol) plus Godot's RPC encoding, which PHP can't speak without reimplementing both. A simpler
@@ -291,7 +303,7 @@ rules below are how this project avoids them:
   sentences: `test_entries_with_the_exact_name_come_first`, not `test_exact_name_ranks_its_entries_first`.
 
 **The exception: text that the model reads.** Tool descriptions, `Tools::INSTRUCTIONS`,
-error messages and hints are written for Claude, not for people. Changing their wording can change
+prompt text, error messages and hints are written for Claude, not for people. Changing their wording can change
 how Claude behaves, so don't reword them only for style. Change them when the behaviour needs to
 change, then test the result in Claude Desktop (or with an eval, once there is one). They still follow
 the rule in "MCP rules that break things when you forget them": no facts about specific game content.

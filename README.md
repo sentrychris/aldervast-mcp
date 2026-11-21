@@ -22,6 +22,8 @@ src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offer
   Json.php               prints JSON in a readable layout
 src/Mcp/       Aldervast\Mcp     the MCP server's own code
   ToolCallLog.php        writes every tool call that the server runs to logs/tool-calls.jsonl
+  WikiPages.php          the MCP resources: each wiki page as Markdown, for a person to attach to a chat
+  Prompts.php            the MCP prompts: ready-made requests such as "plan my build"
 src/Agent/     Aldervast\Agent   the agent loop, which talks to the Messages API
   AgentLoop.php          the agent loop itself (read it from top to bottom)
   AgentLoopError.php     why a run failed before Claude answered
@@ -354,6 +356,71 @@ Crypt?" or "how do I beat the Hollow Crypt's boss?". It will ask permission to u
 first time, call your PHP, and answer. Expand a tool call in the chat to see the exact input and
 output. Remove it with `claude mcp remove aldervast`.
 
+### Resources and prompts
+
+Tools are one of three things that an MCP server can offer. The other two are **resources** and
+**prompts**. The difference is who decides to use them:
+
+| | Who decides | What this server offers |
+|---|---|---|
+| Tool | The model, during a chat | The six tools above |
+| Resource | The person, who attaches it to a chat | Each wiki page, whole, as Markdown |
+| Prompt | The person, who picks it like a command | `plan_build` and `plan_levelling` |
+
+The server declares all three in its `initialize` reply (`"capabilities":{"tools":{},"resources":{},"prompts":{}}`).
+A client only asks for resources or prompts if they are declared there.
+
+**Resources** (`src/Mcp/WikiPages.php`). `resources/list` returns one resource for each wiki page
+that the search index points to, such as `aldervast://wiki/dungeons.html`. The list comes from the
+index, so a new page on the site appears without a code change. `resources/read` returns the page's
+entries as Markdown: each entry's name, subtitle, URL, description, facts and sections, without the
+HTML. A resource suits "read this whole page"; a tool suits "find the one entry that answers this".
+
+Some things to know:
+
+- **The URIs use their own scheme, `aldervast://`,** not the page's `https://` address. The MCP spec
+  asks servers to use `https://` only when the client could download the resource itself. This
+  server sends something different from the page (Markdown, not HTML), so it uses its own scheme.
+- **Only the listed pages can be read.** Any other URI, such as `aldervast://../.env`, gets the
+  spec's "resource not found" error, code `-32002`, and the server fetches nothing.
+- **Some pages are big.** Most are 1,000 to 17,000 tokens, but `bosses.html` is about 40,000 and
+  `quests.html` about 70,000. Attaching one of those fills much of the model's context window
+  (the text that the model can hold at once). For a question about one quest, the tools are cheaper.
+- **Resource reads aren't in the tool call log.** The log records tool calls only.
+
+**Prompts** (`src/Mcp/Prompts.php`). A prompt is a template for a message from the person.
+`prompts/list` returns each prompt with its arguments. `prompts/get` returns the finished message,
+with the arguments filled in, and the client sends it to the model as if the person had typed it.
+The text tells the model which tools to use and asks it to cite the wiki, so a person gets a
+well-formed request without writing one.
+
+| Prompt | Arguments | What it asks for |
+|---|---|---|
+| `plan_build` | `class`, optional `level` and `playstyle` | A build for the class, with every choice looked up on the wiki and cited |
+| `plan_levelling` | `level` (1 to 60) | A plan for that level from `levelling_route`: quests, dungeons and where to go |
+
+An unknown prompt, a missing required argument, or a level that isn't a whole number from 1 to 60
+gets the JSON-RPC "invalid params" error, `-32602`.
+
+The prompt text is for the model, like a tool description, so the same rule applies: it may name
+the tools, but it holds no facts about specific game content. `PromptsTest` checks each text word
+for word, so that a change to the wording is always deliberate.
+
+Where to find them in a client:
+
+- **Claude Code:** type `@` to attach a resource (`@aldervast:aldervast://wiki/dungeons.html`),
+  and `/` for a prompt (`/mcp__aldervast__plan_build Warden 25`).
+- **Claude Desktop:** both are in the "+" menu under the server's name.
+
+Try them by hand:
+
+```powershell
+'{"jsonrpc":"2.0","id":1,"method":"resources/list"}' | php mcp-server.php
+'{"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":"aldervast://wiki/classes.html"}}' | php mcp-server.php
+'{"jsonrpc":"2.0","id":3,"method":"prompts/list"}' | php mcp-server.php
+'{"jsonrpc":"2.0","id":4,"method":"prompts/get","params":{"name":"plan_build","arguments":{"class":"Warden","level":"25"}}}' | php mcp-server.php
+```
+
 ## Tests
 
 ```powershell
@@ -387,13 +454,15 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `ServerToolTest` | The server list: each server's fields, the list without the object around it, and a definition with no inputs |
 | `ToolDefinitionsTest` | Every tool's definition: the name matches the tool, the description isn't empty, the input schema is a JSON object, every input has a type and a description, and every required input exists |
 | `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
+| `WikiPagesTest` | The resources: one per page in the search index, in alphabetical order, their URIs and descriptions, each entry's parts in the Markdown, table rows, a page with one bare entry, and refusing any URI that isn't listed |
+| `PromptsTest` | The prompts: their arguments, each prompt's exact text, optional arguments left out when blank, levels 1 and 60 allowed, and errors for an unknown prompt, a missing argument or a bad level |
 | `ToolCallLogTest` | The tool call log: one JSON line per call with every field, lines added to the end, errors kept but shortened, broken text still logged, and a file that can't be written doesn't stop the call |
 | `AgentLoopTest` | The agent loop, against recorded API responses (no paid calls): tool calls and results, the history sent back, retries and their waits, time limits, a different model answering, refusals, the five-turn limit |
 | `EvalScoreTest` | The eval's grading: a right run passes, "I don't know" fails everything, a right answer from memory doesn't pass, confidence intervals, cost |
 | `JsonTest`, `EnvTest` | `Json::pretty()`, and `Env::load()` / `Env::get()` (a real environment variable wins over `.env`) |
 | `ArchitectureTest` | That `src/Tools/`, `src/Mcp/`, `src/Agent/` and `src/Eval/` use only the parts they are allowed to (see the diagram at the top) |
 | `EveryToolHasTestsTest` | That every tool in `src/Tools/Tools.php` has its own test class, with at least three tests that call the tool's `run()`. If someone adds a tool without tests, this test fails and says which file to create |
-| `McpServerTest` | The MCP protocol. It starts `mcp-server.php` as a separate process, as Claude Desktop does. Then it checks that the server writes only JSON-RPC to its output, doesn't reply to notifications, sends correct schemas, and reports tool failures with `isError` |
+| `McpServerTest` | The MCP protocol. It starts `mcp-server.php` as a separate process, as Claude Desktop does. Then it checks that the server writes only JSON-RPC to its output, doesn't reply to notifications, sends correct schemas, reports tool failures with `isError`, declares resources and prompts, and sends the spec's error codes for an unknown resource or prompt |
 
 ### Saved copies of the pages (fixtures)
 

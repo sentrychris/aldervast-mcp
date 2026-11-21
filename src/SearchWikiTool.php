@@ -261,7 +261,7 @@ final class SearchWikiTool
      * model's guess, the code gives the same result every time.
      *
      * The mark on its own doesn't say what the model should do. That rule ("don't fill in the
-     * missing words; call get_wiki_entry instead") is in INSTRUCTIONS in mcp-server.php and in this
+     * missing words; call get_wiki_entry instead") is in Tools::INSTRUCTIONS (src/Tools.php) and in this
      * tool's description above. The model gets those when the client connects to the server, and
      * later sees the mark in a result.
      */

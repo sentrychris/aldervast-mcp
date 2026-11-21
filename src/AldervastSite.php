@@ -75,9 +75,16 @@ final class AldervastSite
             throw $e;
         }
 
+        // Write to a temporary file first, then rename it into place. Several processes can share the
+        // cache (the eval runs several at once), and a rename is all-or-nothing, so no process ever
+        // reads a half-written copy. If the rename fails (another process has the file open), keep
+        // the old copy; this process still has the fresh one in $body.
         $dir = dirname($file);
-        if (is_dir($dir) || mkdir($dir, 0777, true)) {
-            file_put_contents($file, $body);
+        if (is_dir($dir) || @mkdir($dir, 0777, true)) {
+            $temporary = $file . '.' . getmypid() . '.tmp';
+            if (@file_put_contents($temporary, $body) !== false && !@rename($temporary, $file)) {
+                @unlink($temporary);
+            }
         }
 
         return $body;

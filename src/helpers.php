@@ -19,6 +19,23 @@ function load_env(string $path): void
     }
 }
 
+/**
+ * A setting from the environment, or from .env if the environment doesn't have it (call load_env()
+ * first). A real environment variable wins, so a command such as a test can override .env.
+ *
+ * Why both: load_env() fills $_ENV, but PHP often leaves real environment variables out of $_ENV
+ * (it depends on variables_order in php.ini), so they have to be read with getenv().
+ */
+function env(string $name, string $default = ''): string
+{
+    $value = getenv($name);
+    if ($value !== false && $value !== '') {
+        return $value;
+    }
+
+    return $_ENV[$name] ?? $default;
+}
+
 /** Formats any value as indented JSON, so that the requests and replies are easy to read. */
 function pretty(mixed $data): string
 {

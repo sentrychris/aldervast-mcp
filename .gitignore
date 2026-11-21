@@ -3,3 +3,10 @@
 /cache/
 /logs/
 /.phpunit.cache/
+# Claude Code's local settings for this machine
+/.claude/settings.local.json
+# Eval output that can be rebuilt (composer eval:report) or is bulky; results.jsonl is kept
+/.claude/hillclimb/**/traces/
+/.claude/hillclimb/**/report.html
+/.claude/hillclimb/**/state.json
+/.claude/hillclimb/**/trajectory/

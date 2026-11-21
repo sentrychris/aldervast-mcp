@@ -1,0 +1,75 @@
+{
+    "about": [
+        "The eval's test questions, written the way players type them. evals/run.php runs each one through the agent loop and checks two things:",
+        "found: one of these texts appears in a tool result, i.e. Claude was shown the right wiki entry. An empty list means any wiki tool call counts (for questions about things that don't exist).",
+        "answer: every pattern matches Claude's final answer. Each pattern is a regular expression, matched ignoring case.",
+        "source: 'chris' for questions asked in Claude Desktop or seen in the tool call log; 'written' for variations in the same style. Every expected answer was checked against the wiki on 2026-11-21 (game version 1.14.95)."
+    ],
+    "cases": [
+        {"id": "deer-boss", "source": "chris", "tags": ["boss"], "question": "What is the big deer boss in Aldervast called?",
+         "found": ["wiki/bosses.html#monster-elderhorn", "wiki/worldbosses.html#waking-elderhorn"], "answer": ["Elderhorn"]},
+        {"id": "crab-boss", "source": "chris", "tags": ["boss"], "question": "Which Aldervast world boss is a giant crab?",
+         "found": ["wiki/bosses.html#monster-old_carapace"], "answer": ["Carapace"]},
+        {"id": "classes", "source": "chris", "tags": ["class"], "question": "What playable classes are there in Aldervast?",
+         "found": ["wiki/classes.html#class-"], "answer": ["Ravager", "Warden", "Arcanist", "Shade", "Stalker", "Skirmisher"]},
+        {"id": "ravager", "source": "chris", "tags": ["class"], "question": "What does Ravager do in Aldervast?",
+         "found": ["wiki/classes.html#class-ravager"], "answer": ["melee|strength"]},
+        {"id": "unique-crossbows", "source": "chris", "tags": ["item"], "question": "any unique crossbows in aldervast?",
+         "found": ["wiki/uniques.html#unique-u_tidecaller", "wiki/uniques.html#unique-u_elderhorn_bow"], "answer": ["Tidecaller", "Elderhorn"]},
+        {"id": "server", "source": "chris", "tags": ["server"], "question": "is there an aldervast server i can join",
+         "found": ["versyxdigital.net"], "answer": ["versyxdigital\\.net"]},
+
+        {"id": "crypt-boss", "source": "written", "tags": ["boss"], "question": "whats the crypt boss in aldervast",
+         "found": ["wiki/bosses.html#monster-ossric", "wiki/dungeons.html#dungeon-hollow_crypt"], "answer": ["Ossric"]},
+        {"id": "crypt-boss-typo", "source": "written", "tags": ["boss"], "question": "hollow cript boss aldervast??",
+         "found": ["wiki/bosses.html#monster-ossric", "wiki/dungeons.html#dungeon-hollow_crypt"], "answer": ["Ossric"]},
+        {"id": "beat-ossric", "source": "written", "tags": ["boss"], "question": "tips for beating ossric in aldervast",
+         "found": ["wiki/bosses.html#monster-ossric"], "answer": ["stack|Lantern's Call|Lantern’s Call"]},
+        {"id": "dragon-boss", "source": "written", "tags": ["boss"], "question": "is there a dragon boss in aldervast",
+         "found": ["wiki/bosses.html#monster-calathrax"], "answer": ["Calathrax"]},
+
+        {"id": "crypt-level", "source": "written", "tags": ["dungeon"], "question": "what lvl is the hollow crypt in aldervast",
+         "found": ["wiki/dungeons.html#dungeon-hollow_crypt"], "answer": ["\\b5\\b"]},
+        {"id": "raid-50", "source": "written", "tags": ["dungeon"], "question": "aldervast lvl 50 raid?",
+         "found": ["wiki/dungeons.html#dungeon-cinderwell"], "answer": ["Cinderwell"]},
+        {"id": "raid-count", "source": "written", "tags": ["dungeon"], "question": "how many raids does aldervast have",
+         "found": ["wiki/dungeons.html#dungeon-sundered_spire", "wiki/dungeons.html#dungeon-drowned_basilica", "wiki/dungeons.html#dungeon-cinderwell", "wiki/dungeons.html#dungeon-the_fell"],
+         "answer": ["\\b4\\b|\\bfour\\b"]},
+
+        {"id": "crypt-quest-giver", "source": "written", "tags": ["quest"], "question": "who gives the hollow crypt quest in aldervast",
+         "found": ["wiki/quests.html#quest-ms03_crypt"], "answer": ["Hale"]},
+        {"id": "chapter-1-length", "source": "written", "tags": ["quest"], "question": "how many quests are in chapter 1 of the aldervast main story",
+         "found": ["wiki/guides.html#walk-the-unlit-road"], "answer": ["\\b12\\b|\\btwelve\\b"]},
+        {"id": "start-town", "source": "written", "tags": ["quest"], "question": "where do new players start in aldervast",
+         "found": ["wiki/settlements.html#settlement-harrowford", "wiki/quests.html#quest-ms01_awakening", "wiki/guides.html#walk-the-unlit-road"], "answer": ["Harrowford"]},
+
+        {"id": "frostspire-town", "source": "written", "tags": ["world"], "question": "what town is in frostspire peaks (aldervast)",
+         "found": ["wiki/regions.html#region-frostspire", "wiki/settlements.html#settlement-highwatch"], "answer": ["Highwatch"]},
+        {"id": "frostspire-levels", "source": "written", "tags": ["world"], "question": "aldervast frostspire peaks what level",
+         "found": ["wiki/regions.html#region-frostspire"], "answer": ["\\b24\\b", "\\b34\\b"]},
+        {"id": "factions", "source": "written", "tags": ["world"], "question": "what factions are in aldervast",
+         "found": ["wiki/factions.html#faction-"], "answer": ["Lantern Compact", "Thorn Covenant", "Tidewardens", "Emberwatch", "Ashen Choir"]},
+        {"id": "lanternfast", "source": "written", "tags": ["world"], "question": "when is lanternfast in aldervast",
+         "found": ["wiki/festivals.html#festival-lanternfast"], "answer": ["20(th)? (of )?Nov|Nov(ember)? 20", "6(th)? (of )?Jan|Jan(uary)? 6"]},
+
+        {"id": "tank-classes", "source": "written", "tags": ["class"], "question": "which classes can tank in aldervast",
+         "found": ["wiki/classes.html#class-"], "answer": ["Ravager", "Warden", "Skirmisher"]},
+        {"id": "ember-bolt", "source": "written", "tags": ["class"], "question": "what does ember bolt do in aldervast",
+         "found": ["wiki/skills.html#skill-ember_bolt"], "answer": ["fire"]},
+
+        {"id": "moss-elk", "source": "written", "tags": ["item"], "question": "how do i get the moss elk mount in aldervast",
+         "found": ["wiki/mounts.html#mount-elder_elk", "wiki/bosses.html#monster-elderhorn"], "answer": ["Elderhorn"]},
+        {"id": "mount-count", "source": "written", "tags": ["item"], "question": "how many mounts can you get in aldervast",
+         "found": ["wiki/mounts.html#mount-"], "answer": ["\\b17\\b|\\bseventeen\\b"]},
+
+        {"id": "server-port", "source": "written", "tags": ["server"], "question": "whats the aldervast server port",
+         "found": ["versyxdigital.net"], "answer": ["24650"]},
+
+        {"id": "no-necromancer", "source": "written", "tags": ["does-not-exist"], "question": "can i play a necromancer in aldervast",
+         "found": ["wiki/classes.html#class-"], "answer": ["\\b(no|not|isn['’]t|aren['’]t|doesn['’]t|don['’]t)\\b"]},
+        {"id": "no-paladin", "source": "written", "tags": ["does-not-exist"], "question": "is paladin a class in aldervast",
+         "found": ["wiki/classes.html#class-"], "answer": ["\\b(no|not|isn['’]t|aren['’]t|doesn['’]t|don['’]t)\\b"]},
+        {"id": "no-werewolf", "source": "written", "tags": ["does-not-exist"], "question": "where do i find the werewolf boss in aldervast",
+         "found": [], "answer": ["\\b(no|not|isn['’]t|aren['’]t|doesn['’]t|don['’]t|couldn['’]t|can['’]t)\\b"]}
+    ]
+}

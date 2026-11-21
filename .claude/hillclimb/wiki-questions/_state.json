@@ -1,0 +1,54 @@
+{
+    "metrics": [
+        {
+            "id": "pass",
+            "label": "Pass",
+            "kind": "binary"
+        },
+        {
+            "id": "found",
+            "label": "Right entry",
+            "kind": "binary"
+        },
+        {
+            "id": "answered",
+            "label": "Right answer",
+            "kind": "binary"
+        },
+        {
+            "id": "used_tools",
+            "label": "Used tools",
+            "kind": "binary"
+        }
+    ],
+    "perf_fields": [
+        {
+            "id": "tool_calls",
+            "label": "Tool calls"
+        },
+        {
+            "id": "latency_s",
+            "label": "API time",
+            "unit": "s"
+        },
+        {
+            "id": "cost_usd",
+            "label": "Cost",
+            "unit": "$"
+        }
+    ],
+    "prices": {
+        "claude-sonnet-5-5": {
+            "in": 2,
+            "out": 10
+        },
+        "claude-opus-5-5": {
+            "in": 4,
+            "out": 20
+        },
+        "claude-haiku-5-5": {
+            "in": 0.1,
+            "out": 0.5
+        }
+    }
+}

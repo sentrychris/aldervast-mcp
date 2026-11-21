@@ -30,7 +30,13 @@
             "phpunit --coverage-html .phpunit.cache/html"
         ],
         "log": "@php show-log.php",
+        "eval": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php evals/run.php"
+        ],
+        "eval:report": "node evals/build-report-lite.mjs .claude/hillclimb/wiki-questions",
         "test:mutation": [
+            "Composer\\Config::disableProcessTimeout",
             "@putenv XDEBUG_MODE=coverage",
             "@php -d auto_prepend_file= vendor/bin/infection --threads=max --no-progress --show-mutations=0"
         ]
@@ -41,7 +47,9 @@
         "test:coverage": "Run the offline tests with code coverage, and fail if any tool is below 80%.",
         "test:coverage-html": "Write a code coverage report to .phpunit.cache/html/index.html.",
         "test:mutation": "Run mutation testing with Infection, and fail if the score is below 90%.",
-        "log": "Show the MCP server's recent tool calls, grouped by session (add -- 200 for more)."
+        "log": "Show the MCP server's recent tool calls, grouped by session (add -- 200 for more).",
+        "eval": "Run the eval: every question in evals/cases.json through the agent loop. CALLS THE PAID API.",
+        "eval:report": "Rebuild the eval report: .claude/hillclimb/wiki-questions/report.html (needs Node)."
     },
     "config": {
         "allow-plugins": {

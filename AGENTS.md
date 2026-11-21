@@ -25,7 +25,13 @@ is paused; this project only *reads* public game data.
 ## Layout
 
 ```
-agent.php           the agent loop demo (Messages API over Guzzle)
+agent.php           runs AgentLoop on one question and prints every step (the learning demo)
+src/AgentLoop.php   the agent loop (Messages API over Guzzle); agent.php and the eval both use it
+src/AgentLoopError.php  why a run failed: api_error, timeout or model_mismatch
+src/EvalScore.php   the eval's grading: scores per run, the summary with 95% intervals, cost
+evals/cases.json    the eval's 28 questions and expected answers
+evals/run.php       runs the eval (PAID API); results in .claude/hillclimb/wiki-questions/<variant>/
+evals/build-report-lite.mjs  builds report.html from those results ("composer eval:report"); copied from the claude-api skill
 mcp-server.php      stdio MCP server: initialize, tools/list, tools/call, ping
 src/helpers.php     load_env(), pretty(), step()
 src/Tools.php       the list of every tool; mcp-server.php, agent.php and the tests all read it
@@ -63,6 +69,8 @@ composer test:mutation            # mutation testing with Infection (about 90 s)
 php tests/update-fixtures.php     # refresh tests/fixtures/ after the site changes on purpose
 composer log                      # the MCP server's recent tool calls, grouped by session
 php agent.php "your question"     # needs ANTHROPIC_API_KEY in .env, and costs a little money
+composer eval                     # the eval: 28 questions x 2 runs through AgentLoop. PAID; ask Chris first
+composer eval:report              # rebuilds .claude/hillclimb/wiki-questions/report.html from the results (free)
 
 # Test the MCP server by hand, with no API key and no cost:
 '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | php mcp-server.php
@@ -121,7 +129,8 @@ After that, try the tool by piping a `tools/call` request into the server, and f
 - `tools/call` returns `{"content":[{"type":"text","text":"..."}],"isError":false}`. Report a tool
   failure with `isError: true` in a normal result. Use a JSON-RPC `error` only for protocol problems
   such as an unknown method or an unknown tool.
-- `initialize` returns server-wide `instructions` (the `INSTRUCTIONS` constant in `mcp-server.php`).
+- `initialize` returns server-wide `instructions` (`Tools::INSTRUCTIONS` in `src/Tools.php`; `AgentLoop`
+  sends the same text as its system prompt).
   Keep it and every tool description general: no facts about specific game content (e.g. "deer means
   stag"). Such examples leak answers into tests and don't scale; the model supplies synonyms itself.
 - `json_decode($x, true)` turns `{}` into `[]`. When a decoded object goes back over the wire (e.g. a
@@ -211,6 +220,12 @@ publishes one. That would be game work, which is paused.
 - **This is a learning project.** Prefer small, plain PHP over frameworks or extra packages. Comment *why*,
   for a reader new to agents. Update `README.md` when you add a tool or change how to run things.
 - Say plainly what you tested and what you didn't. Calls to the paid API aren't free, so ask first.
+  That includes `agent.php` and the eval (`composer eval`, `evals/run.php`), even for one question.
+- **Never pass `--approve-harness` to `evals/run.php` on your own.** Approving the runner, agent loop
+  and grader is Chris's decision, after he has read the change. To test the runner itself, point
+  `ALDERVAST_EVAL_DIR` at a temporary folder and `ANTHROPIC_BASE_URL` at a fake local API.
+- **Don't change `evals/cases.json` to make the score go up.** Add or fix a case only when its
+  question or expected answer is wrong or missing, check the answer against the wiki, and say so.
 
 ## Code style
 
@@ -254,7 +269,7 @@ rules below are how this project avoids them:
 - **Test method names follow the same rules,** because `vendor/bin/phpunit --testdox` prints them as
   sentences: `test_entries_with_the_exact_name_come_first`, not `test_exact_name_ranks_its_entries_first`.
 
-**The exception: text that the model reads.** Tool descriptions, `INSTRUCTIONS` in `mcp-server.php`,
+**The exception: text that the model reads.** Tool descriptions, `Tools::INSTRUCTIONS`,
 error messages and hints are written for Claude, not for people. Changing their wording can change
 how Claude behaves, so don't reword them only for style. Change them when the behaviour needs to
 change, then test the result in Claude Desktop (or with an eval, once there is one). They still follow

@@ -36,7 +36,8 @@ foreach ($lines as $line) {
         echo "\nSession {$session}, started " . date('Y-m-d H:i', strtotime($call['time'])) . "\n";
     }
 
-    $input = json_encode($call['input'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    // json_decode turned an empty input {} into [], so turn it back for display.
+    $input = json_encode((object) $call['input'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     // A failed call shows the start of its error. The log file keeps the first 200 characters.
     $outcome = $call['is_error']
         ? 'ERROR: ' . mb_strimwidth(preg_replace('/^Error: /', '', $call['error']), 0, 70, '…')

@@ -6,7 +6,8 @@ exactly what is sent and received. The same tools also run as an MCP server, so 
 Claude Desktop can use them.
 
 ```
-agent.php                the agent loop (about 150 lines; read it from top to bottom)
+agent.php                runs the agent loop on one question and prints every step
+src/AgentLoop.php        the agent loop itself (read it from top to bottom)
 mcp-server.php           the same tools, offered as an MCP server (step 2 below)
 src/Tools.php            the list of every tool; agent.php, mcp-server.php and the tests all read it
 src/ServerTool.php       the list_servers tool: its definition, and the PHP that runs it
@@ -19,6 +20,8 @@ src/ToolCallLog.php      writes every tool call that the MCP server runs to logs
 show-log.php             prints that log as a readable list ("composer log")
 src/helpers.php          reads .env, and prints JSON in a readable layout
 tests/                   PHPUnit tests, with saved copies of wiki pages in tests/fixtures/ (see "Tests")
+evals/                   the eval: test questions, and the script that runs them (see "The eval")
+src/EvalScore.php        the eval's grading
 ```
 
 ## The tools
@@ -185,10 +188,20 @@ functions to call next. To add a tool, add its class to the list in `src/Tools.p
 add a tool" in AGENTS.md). With several tools, the model can make several calls before it
 answers.
 
-Some settings in `agent.php` that are worth knowing about: `claude-sonnet-5-5` is the model;
-`effort: low` keeps a simple question quick and cheap; `fallbacks: "default"` (with its
-`anthropic-beta` header) lets the API retry on another model if a safety check declines the
-request. You can safely delete both of the last two lines.
+The loop itself is in `src/AgentLoop.php`; `agent.php` only runs it and prints each step. Some
+settings there that are worth knowing about:
+
+- `claude-sonnet-5-5` is the model, and `effort: low` keeps a simple question quick and cheap.
+- `system` is the same guidance that the MCP server sends to Claude Desktop (`Tools::INSTRUCTIONS`),
+  so that this demo and the eval behave like Claude Desktop does.
+- `cache_control` turns on prompt caching: the API keeps the start of each request (tools,
+  guidance, conversation so far) for a few minutes, and the next request that starts the same way
+  reads it at a tenth of the price. Every turn repeats everything before it, so this saves most of
+  the input cost. In the printed usage, `cache_read_input_tokens` shows it working.
+- `fallbacks: "default"` (with its `anthropic-beta` header) lets the API retry on another model if a
+  safety check declines the request. You can safely delete both.
+- If a request fails because of a rate limit or an overloaded server, the loop waits 1, 2, then 4
+  seconds (plus a little at random) and tries again, up to three times.
 
 ## Step 2: the same tools as an MCP server
 
@@ -201,7 +214,7 @@ exchange one JSON-RPC message per line over stdin and stdout. The script handles
 ### Server instructions
 
 Besides the tools, the server sends **instructions** in its `initialize` reply. This is a short
-paragraph (the `INSTRUCTIONS` constant in `mcp-server.php`), which the client adds to Claude's
+paragraph (`Tools::INSTRUCTIONS` in `src/Tools.php`), which the client adds to Claude's
 context in every chat that uses the server. Each tool description says what one tool does. The
 instructions say when to use the server at all. They tell Claude that its own knowledge of
 Aldervast is unreliable, so it should look things up rather than answer from memory, and they give
@@ -303,6 +316,9 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `ToolDefinitionsTest` | Every tool's definition: the name matches the tool, the description isn't empty, the input schema is a JSON object, every input has a type and a description, and every required input exists |
 | `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
 | `ToolCallLogTest` | The tool call log: one JSON line per call with every field, lines added to the end, errors kept but shortened, broken text still logged, and a file that can't be written doesn't stop the call |
+| `AgentLoopTest` | The agent loop, against recorded API responses (no paid calls): tool calls and results, the history sent back, retries and their waits, time limits, a different model answering, refusals, the five-turn limit |
+| `EvalScoreTest` | The eval's grading: a right run passes, "I don't know" fails everything, a right answer from memory doesn't pass, confidence intervals, cost |
+| `HelpersTest` | `env()`, `load_env()` and `pretty()` |
 | `EveryToolHasTestsTest` | That every tool in `src/Tools.php` has its own test class, with at least three tests that call the tool's `run()`. If someone adds a tool without tests, this test fails and says which file to create |
 | `McpServerTest` | The MCP protocol. It starts `mcp-server.php` as a separate process, as Claude Desktop does. Then it checks that the server writes only JSON-RPC to its output, doesn't reply to notifications, sends correct schemas, and reports tool failures with `isError` |
 
@@ -399,6 +415,114 @@ Three things to know when you run it:
 `composer test` takes a few seconds, `composer test:coverage` a little longer, and
 `composer test:mutation` about a minute and a half. So use `composer test` while you work, and the
 other two before you commit.
+
+## The eval
+
+The tests above check that each tool works. The eval checks the other question: **does Claude pick
+the right tools for real questions, and answer correctly?** Claude's route can vary from run to run,
+so the eval runs each question more than once and reports a score with a confidence interval.
+
+```powershell
+composer eval                                   # every question, 2 runs each (CALLS THE PAID API)
+php evals/run.php --only=deer-boss --reps=1     # just one question, once
+php evals/run.php --variant=v1                  # a separate set of results, e.g. after a change
+```
+
+**The questions** are in `evals/cases.json`: 28 questions written the way that players type them
+("whats the crypt boss in aldervast", "aldervast lvl 50 raid?"), 6 of them asked for real in Claude
+Desktop or seen in the tool call log. Three ask about things that don't exist (a necromancer class,
+a werewolf boss), to check that Claude says no instead of inventing an answer. Every expected
+answer was checked against the wiki.
+
+**How each run is scored** (`src/EvalScore.php`), with no extra API calls:
+
+| Score | Means |
+|---|---|
+| **Pass** | both of the next two: the headline number |
+| Right entry | a tool returned the wiki entry that the question is about |
+| Right answer | the final answer contains every expected fact (each one a regular expression) |
+| Used tools | Claude used a tool at all, rather than answering from memory |
+
+A run that fails before giving an answer (the API kept failing, the run took longer than 3
+minutes, or a different model answered) goes to `errors.jsonl` and isn't counted as a wrong
+answer. Two kinds of finished run are counted and shown, but left out of the scores: an answer cut
+off at `max_tokens` (status `truncated`), and a run that `AgentLoop`'s own limit of 5 turns stopped
+before Claude answered (status `turn_limit`). Claude Desktop has no such limit, so a turn-limit run
+says more about the test setup than about Claude. It is still worth a look: in the first baseline,
+both runs of the werewolf question stopped there after 8 searches for a boss that doesn't exist.
+The report shows such a question with no score; the terminal summary counts the runs.
+
+**What a run prints:** one line per run (PASS or FAIL, the route of tool calls, and why it failed),
+then each score as a percentage with its **95% interval**. The interval is how far the score could
+move by chance alone: with 28 questions and 2 runs each, about ±13 points. A change that moves the
+score by less than that isn't evidence of anything; run more questions or more runs to see smaller
+changes.
+
+**Where the results go:** `.claude/hillclimb/wiki-questions/<variant>/`, with `results.jsonl` (one
+line per run: scores, route, tokens, time), `traces/` (each full conversation) and `errors.jsonl`.
+Running the same command again only runs what's missing, so a crash loses nothing. To start a
+variant again, delete its folder.
+
+### Variants: comparing a change
+
+A **variant** is one version of the setup, measured with the same questions and the same grading.
+`baseline` is the setup as it is today. `v1`, `v2`, … are later versions, each with one change to
+test: a reworded tool description, a parser fix, different server instructions, or another model
+(`--model=claude-opus-5-5`).
+
+1. Run the baseline: `composer eval`. Results go in `.claude/hillclimb/wiki-questions/baseline/`.
+2. Make **one** change to the code.
+3. Run `php evals/run.php --variant=v1`. Results go in a separate folder, `v1/`.
+4. Write one line saying what you changed in `.claude/hillclimb/wiki-questions/v1/change.md`. The
+   report shows that line next to the variant. The runner doesn't write this file for you.
+5. Rebuild the report (below) and compare.
+
+Three rules keep the comparison fair:
+
+- **The variant name is only a label for where the results go.** The runner doesn't switch code
+  for you: `v1` measures whatever the code is when you run it. So run the baseline *before* you
+  change anything.
+- **Change one thing per variant.** If you change two things and the score moves, you can't tell
+  which one did it.
+- **Keep the questions and the grading fixed.** The harness check (below) stops the eval when the
+  runner, agent loop or grader changes. The tools can change, because they are what you're testing.
+
+Only names like `baseline`, `v1`, `v2` work: the report ignores any other folder name.
+
+### Reading the report
+
+Build it with `composer eval:report` (it needs Node), then open
+`.claude/hillclimb/wiki-questions/report.html` in a browser. The builder, `evals/build-report-lite.mjs`,
+is a copy of the one that comes with the `claude-api` skill in Claude Code. It only reads the
+results and writes the report; it doesn't use the network.
+
+Git keeps each variant's `results.jsonl`, so variants can be compared later. The conversations
+(`traces/`), `report.html` and `trajectory/` are left out of git (see `.gitignore`): the report can
+be rebuilt, and the conversations are bulky. Keep a variant's conversations on your machine for as
+long as you want to read them.
+
+- **The header** says how many variants and questions there are, and that the main score is Pass.
+- **Variants**, one row per version: `mean pass` is the share of questions that passed, from 0 to 1
+  (1.000 is 100%). `truncated` counts answers cut off at `max_tokens`, and `failed attempts` counts
+  runs that crashed, timed out, or were answered by another model. Neither is in the score.
+- **Cases**, one row per question: its id and tags (topic, and `source: chris` for your own
+  questions), then a score per variant, averaged over its runs (1.000 passed every run, 0.500 passed
+  one of two, 0.000 failed every run). Click a column header to sort; sorting by score puts the
+  failures first.
+- **`rep0`, `rep1`** link to each run's full conversation, a JSON list of turns: `system` (the
+  instructions), `user` (the question), `tool_call` and `tool_result` (each tool that Claude used,
+  with its input and output), and `assistant` (Claude's text, ending with the answer).
+
+The report shows only the Pass score. The other scores, why a run failed, and the cost are in the
+terminal summary that the runner prints, and in each line of `results.jsonl` (the `explanation`
+field says why each score is 0 or 1).
+
+**The harness check:** the scores are only comparable while the runner, agent loop and grader stay
+the same. So `evals/run.php` refuses to start when any of them changed since someone last ran it
+with `--approve-harness`. Read the change first, then approve it.
+
+**Cost:** each run is a few API calls. The summary prints the measured cost (failed attempts
+included), priced from `EvalScore::PRICES`.
 
 ## Troubleshooting
 

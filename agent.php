@@ -52,7 +52,7 @@ $messages = [
 
 // The tools the model may ask for, keyed by tool name, so we can find the class to run later.
 $toolClasses = [];
-foreach ([ServerTool::class, SearchWikiTool::class] as $class) {
+foreach ([ServerTool::class, SearchWikiTool::class, GetWikiEntryTool::class, ListCategoryTool::class] as $class) {
     $toolClasses[$class::NAME] = $class;
 }
 // The model only ever sees the definitions (name, description, input schema), never the PHP.

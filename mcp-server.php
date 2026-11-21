@@ -25,9 +25,21 @@ ini_set('display_errors', 'stderr');
 
 // Every tool this server offers, keyed by tool name. To add a tool, write its class in src/ and list it here.
 $tools = [];
-foreach ([ServerTool::class, SearchWikiTool::class] as $class) {
+foreach ([ServerTool::class, SearchWikiTool::class, GetWikiEntryTool::class, ListCategoryTool::class] as $class) {
     $tools[$class::NAME] = $class;
 }
+
+// Server-wide guidance, sent once in the initialize reply. The client adds it to the model's context
+// in every chat where this server is connected, so every user gets it, whatever their history.
+// Tool descriptions say what each tool does; this says when to use the server at all and how the
+// tools fit together. Keep it general: no facts about specific game content.
+const INSTRUCTIONS = 'These tools read the public wiki of Aldervast, an original fantasy action MMORPG. '
+    . 'Your own knowledge of Aldervast is likely missing or out of date, so for any question about the '
+    . 'game, look it up with these tools rather than answering from memory, even if you think you know. '
+    . 'Typical flow: search_wiki to find entries (or list_category to browse when the player\'s wording '
+    . 'doesn\'t match the wiki\'s), then get_wiki_entry for the full details. Base the answer on what '
+    . 'the tools return, and cite the wiki URLs. Text ending in " …" was cut short: never fill in the '
+    . 'missing words yourself; fetch the full entry with get_wiki_entry, or say the detail is incomplete.';
 
 function reply(int|string $id, array $result): void
 {
@@ -63,6 +75,7 @@ while (($line = fgets(STDIN)) !== false) {
                 'protocolVersion' => $msg['params']['protocolVersion'] ?? '2025-06-18',
                 'capabilities' => ['tools' => (object) []],
                 'serverInfo' => ['name' => 'aldervast', 'version' => '1.0.0'],
+                'instructions' => INSTRUCTIONS,
             ]);
             break;
 

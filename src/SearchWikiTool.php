@@ -25,6 +25,13 @@ final class SearchWikiTool
 
     private const MAX_LIMIT = 25;
 
+    /**
+     * The wiki's index cuts every summary at 140 characters, often mid-word ("…past Old Kaldris, ba").
+     * A summary this long or longer has been cut. (Punctuation is no clue: many complete summaries
+     * are fragments with no full stop.)
+     */
+    private const SUMMARY_CUT_LENGTH = 139;
+
     /** Words so common they'd match half the summaries, so they only add noise to the ranking. */
     private const STOP_WORDS = [
         'a', 'an', 'and', 'are', 'at', 'by', 'do', 'for', 'how', 'i', 'in', 'is', 'it',
@@ -40,9 +47,12 @@ final class SearchWikiTool
                 . 'mounts, pets, professions, achievements, guides and more. Matches the query against each '
                 . 'entry\'s name, tags, category and short summary, and returns the best matches with their '
                 . 'name, category, summary and wiki URL. Use it first for any question about the game world, '
-                . 'to find the right entry. Summaries are cut at about 140 characters, so they hold a few '
-                . 'facts, not the full entry. Short queries of distinctive words work best, such as '
-                . '"hollow crypt" or "fire projectile".',
+                . 'to find the right entry. Summaries are short, and one ending in " …" was cut off by '
+                . 'the index: don\'t guess the missing words; call get_wiki_entry if they matter. Short queries of distinctive words work best, such as '
+                . '"hollow crypt" or "fire projectile". It matches words, not meaning, and the wiki has '
+                . 'its own names for things, which are often not the words a player would use. If the '
+                . 'results don\'t fit the question, search again with synonyms or related words, or '
+                . 'browse the likely category with list_category.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
@@ -78,14 +88,47 @@ final class SearchWikiTool
         $limit = max(1, min(self::MAX_LIMIT, (int) ($input['limit'] ?? self::DEFAULT_LIMIT)));
         $categoryInput = trim((string) ($input['category'] ?? ''));
 
-        $entries = AldervastSite::json(self::INDEX_PATH);
-        $categories = $categoryInput === '' ? null : self::matchCategories($categoryInput, $entries);
+        $categories = $categoryInput === '' ? null : self::matchCategories($categoryInput);
+        $matches = self::search($query, $categories);
 
+        $shown = array_slice($matches, 0, $limit);
+        $result = [
+            'query' => $query,
+            'categories' => $categories,
+            'total_matches' => count($matches),
+            'not_shown' => count($matches) - count($shown),
+            'results' => array_map(fn (array $entry) => self::present($entry), $shown),
+        ];
+        if ($categories === null) {
+            unset($result['categories']);
+        }
+        if ($matches === []) {
+            $result['hint'] = 'No matches. Try fewer or different words, a synonym, a singular form or no '
+                . 'category, or browse a category with list_category.';
+        }
+
+        return pretty($result);
+    }
+
+    /** The whole search index: about 1,840 entries of {n, c, u, s, k}. Cached by AldervastSite. */
+    public static function index(): array
+    {
+        return AldervastSite::json(self::INDEX_PATH);
+    }
+
+    /**
+     * Every index entry that matches the query, best first. get_wiki_entry uses this too,
+     * to suggest close matches when a name isn't found.
+     *
+     * @param string[]|null $categories real category names to keep, or null for all
+     */
+    public static function search(string $query, ?array $categories = null): array
+    {
         $phrase = mb_strtolower($query);
         $patterns = self::wordPatterns($phrase);
 
         $matches = [];
-        foreach ($entries as $entry) {
+        foreach (self::index() as $entry) {
             if ($categories !== null && !in_array($entry['c'], $categories, true)) {
                 continue;
             }
@@ -98,22 +141,7 @@ final class SearchWikiTool
         // Best score first; ties in alphabetical order, so the same query always gives the same list.
         usort($matches, fn (array $a, array $b) => [$b['score'], $a['entry']['n']] <=> [$a['score'], $b['entry']['n']]);
 
-        $shown = array_slice($matches, 0, $limit);
-        $result = [
-            'query' => $query,
-            'categories' => $categories,
-            'total_matches' => count($matches),
-            'not_shown' => count($matches) - count($shown),
-            'results' => array_map(fn (array $m) => self::present($m['entry']), $shown),
-        ];
-        if ($categories === null) {
-            unset($result['categories']);
-        }
-        if ($matches === []) {
-            $result['hint'] = 'No matches. Try fewer or different words, a singular form, or no category.';
-        }
-
-        return pretty($result);
+        return array_column($matches, 'entry');
     }
 
     /**
@@ -190,9 +218,9 @@ final class SearchWikiTool
      * wins; otherwise every category that starts with it. The wiki has near-duplicates such as
      * "Hourglass run" and "Hourglass runs", so a prefix is often what's wanted.
      */
-    private static function matchCategories(string $wanted, array $entries): array
+    public static function matchCategories(string $wanted): array
     {
-        $all = array_values(array_unique(array_column($entries, 'c')));
+        $all = array_values(array_unique(array_column(self::index(), 'c')));
         sort($all);
         $lower = mb_strtolower($wanted);
 
@@ -209,13 +237,38 @@ final class SearchWikiTool
         throw new InvalidArgumentException("Unknown category \"{$wanted}\". Categories are: " . implode(', ', $all));
     }
 
+    /**
+     * An entry's summary as the model should see it. The index stores some characters as HTML
+     * entities ("&#x2019;" for ’), so decode them. And if the summary was cut, end it with " …".
+     *
+     * Why mark the cut: a model given "…armor and raw physical " will quietly finish the sentence
+     * itself ("damage") and present the guess as fact. It can't tell a cut summary from a complete
+     * one, but our code can, so the code should say so. Code is deterministic; the model's guess isn't.
+     *
+     * The mark alone doesn't tell the model what to do. That rule ("don't fill in the missing words;
+     * call get_wiki_entry instead") is in INSTRUCTIONS in mcp-server.php and in this tool's
+     * description above. The model reads those when it connects, then sees the mark in a result.
+     */
+    public static function summary(array $entry): string
+    {
+        $text = $entry['s'];
+        $cut = mb_strlen($text) >= self::SUMMARY_CUT_LENGTH;
+        if ($cut) {
+            // The cut can land inside an entity, leaving a stub like "&#x2". Drop it before decoding.
+            $text = preg_replace('/&#?[0-9A-Za-z]*$/', '', $text);
+        }
+        $text = trim(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+        return $cut ? "{$text} …" : $text;
+    }
+
     /** The fields the model sees for each result, with readable names and a full URL. */
-    private static function present(array $entry): array
+    public static function present(array $entry): array
     {
         $out = [
             'name' => $entry['n'],
             'category' => $entry['c'],
-            'summary' => $entry['s'],
+            'summary' => self::summary($entry),
             'url' => AldervastSite::url($entry['u']),
         ];
         if ($entry['k'] !== '') {

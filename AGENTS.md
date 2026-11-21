@@ -30,6 +30,9 @@ mcp-server.php      stdio MCP server: initialize, tools/list, tools/call, ping
 src/helpers.php     load_env(), pretty(), step()
 src/ServerTool.php  the list_servers tool: definition() + run()
 src/SearchWikiTool.php  the search_wiki tool: scores wiki/search.json entries against a query
+src/GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
+src/WikiEntryParser.php   one entry's HTML -> array (article or table row)
+src/ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
 src/AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
 composer.json       PHP >= 8.1, guzzlehttp/guzzle ^7.8, autoload "files"
 .env.example        ANTHROPIC_API_KEY placeholder (the real .env is gitignored)
@@ -95,6 +98,9 @@ Test it by piping `tools/call` JSON-RPC into the server before you try it throug
 - `tools/call` returns `{"content":[{"type":"text","text":"..."}],"isError":false}`. Report a tool
   failure with `isError: true` in a normal result. Use a JSON-RPC `error` only for protocol problems
   such as an unknown method or an unknown tool.
+- `initialize` returns server-wide `instructions` (the `INSTRUCTIONS` constant in `mcp-server.php`).
+  Keep it and every tool description general: no facts about specific game content (e.g. "deer means
+  stag"). Such examples leak answers into tests and don't scale; the model supplies synonyms itself.
 - `json_decode($x, true)` turns `{}` into `[]`. When a decoded object goes back over the wire (e.g. a
   `tool_use` `input` in `agent.php`), cast it with `(object)`.
 
@@ -106,8 +112,8 @@ from the game's own data files. There's no API; these are the useful endpoints:
 | URL | What it is |
 |---|---|
 | `/servers.json` | `{"servers":[{"name","address","port","note"}]}`, the server browser list. Today it holds one server: "Aldervast Alpha", `versyxdigital.net`, port 24650. |
-| `/wiki/search.json` | About 320 KB, about 1,840 entries: the whole wiki as a search index. Each entry is `{"n": name, "c": category, "u": url path, "s": summary (cut at about 140 characters), "k": keywords or tags, often empty}`. |
-| `/wiki/<page>.html` | Full entries. Each is `<article class="entry" id="<kind>-<id>">` with an `<h3>` name, `<span class="sub">` (kind · level), `<p class="desc">` (lore), and `<dl class="facts">` holding `<dt>`/`<dd>` pairs such as Level, Entrance, Boss, Monsters, Quests, Rewards, with links to other entries. |
+| `/wiki/search.json` | About 320 KB, about 1,840 entries: the whole wiki as a search index. Each entry is `{"n": name, "c": category, "u": url path, "s": summary (cut hard at 140 characters, sometimes inside an HTML entity; `SearchWikiTool::summary()` decodes it and marks a cut with " …"), "k": keywords or tags, often empty}`. |
+| `/wiki/<page>.html` | Full entries. Each is `<article class="entry" id="<kind>-<id>">` with an `<h3>` name, `<span class="sub">` (kind · level), `<p class="desc">` (lore), and `<dl class="facts">` holding `<dt>`/`<dd>` pairs such as Level, Entrance, Boss, Monsters, Quests, Rewards, with links to other entries, then optional `<h4>` sections (Objectives, Phases, Encounter journal). Some pages (`items.html`, `achievements.html`) use table rows instead: `<tr id="item-...">`, with meaning in the `<thead>` column headings. `WikiEntryParser` handles both. |
 | `/changelog.html` | Release history, version by version. |
 | `/download.html`, `/servers.html`, `/play.html`, `/world.html` | Download links, the server list, how to play, and the world overview. |
 
@@ -150,9 +156,10 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
 ## Ideas for the next tools, roughly easiest first
 
 1. ~~`search_wiki(query, category?)`~~: done (`src/SearchWikiTool.php`).
-2. `get_wiki_entry(url_or_name)`: fetch the page and return one `<article>` as clean JSON (name, sub,
-   description, facts), with links kept as names.
-3. `list_category(category)`, e.g. every group dungeon with its level, or every mount.
+2. ~~`get_wiki_entry(url_or_name, category?)`~~: done (`src/GetWikiEntryTool.php`, `src/WikiEntryParser.php`).
+3. ~~`list_category(category?)`~~: done (`src/ListCategoryTool.php`). It also covers search misses caused by
+   wording ("big deer boss" vs "Moss Stag"): the model browses the category and matches by meaning. The
+   heavier fix, semantic search with embeddings, needs a new provider and API key; ask Chris first.
 4. `levelling_route(level)`: dungeons, quests and regions suited to a level, from the Level facts.
 5. `latest_release()`: the newest version and its notes, parsed from `/changelog.html`.
 6. MCP **resources** (`resources/list`, `resources/read`) for whole pages, and **prompts**

@@ -35,6 +35,8 @@ const PAGES = [
     'wiki/regions.html',
     'wiki/quests.html',
     'wiki/classes.html',
+    'wiki/guides.html',
+    'wiki/worldbosses.html',
 ];
 
 // Clear the setting, so that we download from the real website and not from the copies that we're

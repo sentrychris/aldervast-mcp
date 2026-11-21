@@ -21,7 +21,10 @@ use InvalidArgumentException;
  *             (you can take it from level 20)" only suits a player of level 20 or more
  *
  * For each, the result has what the model needs to plan a route (levels, region, who gives a quest,
- * the quest that must come first) and the URL, so that get_wiki_entry can fetch the full entry.
+ * the quest that must come first, the quest that leads into a dungeon) and the URL, so that
+ * get_wiki_entry can fetch the full entry. It also reads guides.html, to mark the quests of the
+ * main story with their chapter (see mainStoryChapters()), and worldbosses.html, to mark the quests
+ * whose target is a world boss (see worldBossQuests()).
  */
 final class LevellingRouteTool
 {
@@ -48,8 +51,13 @@ final class LevellingRouteTool
                 . 'when a player asks where to go, what to do, or what to run at their level. A dungeon or '
                 . 'quest suits a level when its own level is within ' . self::RANGE . ' of it; a quest is '
                 . 'only listed if the player can already take it; a region is listed if its level range '
-                . 'includes the level. Each result has its level and wiki URL; quests also have their region, '
-                . 'who gives them and the quest that must come first. Call get_wiki_entry on a URL for details.',
+                . 'includes the level. Each result has its level and wiki URL. Dungeons also have the quest '
+                . 'that leads into them, where the wiki names one, and open, when the dungeon is only open '
+                . 'at certain times. Quests also have their region, who gives '
+                . 'them and the quest that must come first; a quest of the main story has main_story, the '
+                . 'name of its chapter, and a quest without it is not part of the main story; a quest whose target '
+                . 'is a world boss has world_boss, the name of the boss. Call get_wiki_entry on a URL '
+                . 'for details.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
@@ -87,16 +95,24 @@ final class LevellingRouteTool
                 ? abs($numbers[0] - $level) <= self::RANGE
                 : count($numbers) === 2 && $numbers[0] <= $level && $level <= $numbers[1];
             if ($suits) {
-                $dungeons[] = [
+                $dungeons[] = array_filter([
                     'name' => $item['n'],
                     'kind' => $item['c'],
                     'level' => count($numbers) === 1 ? $numbers[0] : $fact,
+                    // The quest that sends the player into this dungeon, so the model doesn't have to
+                    // guess the link between them from their names.
+                    'quests' => $entry['facts']['Quests'] ?? null,
+                    // When a dungeon is only open part of the year. Without this, a dungeon that
+                    // suits the level looks as if it is always open.
+                    'open' => $entry['facts']['Open'] ?? null,
                     'url' => AldervastSite::url($item['u']),
-                ];
+                ], fn ($value) => $value !== null);
             }
         }
         usort($dungeons, fn (array $a, array $b) => [is_int($a['level']) ? $a['level'] : $level, $a['name']] <=> [is_int($b['level']) ? $b['level'] : $level, $b['name']]);
 
+        $chapters = self::mainStoryChapters();
+        $worldBosses = self::worldBossQuests();
         $quests = [];
         foreach (self::entries('wiki/quests.html', ['Quest'], $index) as [$item, $entry]) {
             // "23 (you can take it from level 20)": the quest's level, then the lowest level that can
@@ -108,6 +124,7 @@ final class LevellingRouteTool
             $questLevel = $numbers[0];
             $takeFrom = $numbers[1] ?? 1;
             if (abs($questLevel - $level) <= self::RANGE && $takeFrom <= $level) {
+                $url = AldervastSite::url($item['u']);
                 $quests[] = array_filter([
                     'name' => $item['n'],
                     'level' => $questLevel,
@@ -115,7 +132,9 @@ final class LevellingRouteTool
                     'region' => $entry['facts']['Region'] ?? null,
                     'given_by' => $entry['facts']['Given by'] ?? null,
                     'needs' => $entry['facts']['Needs'] ?? null,
-                    'url' => AldervastSite::url($item['u']),
+                    'main_story' => $chapters[$url] ?? null,
+                    'world_boss' => $worldBosses[$url] ?? null,
+                    'url' => $url,
                 ], fn ($value) => $value !== null);
             }
         }
@@ -154,6 +173,59 @@ final class LevellingRouteTool
         }
 
         return (int) $value;
+    }
+
+    /**
+     * The quests of the main story: quest URL => the name of its chapter, e.g. "The Unlit Road".
+     *
+     * Quest entries don't say whether a quest is part of the main story, but guides.html has one
+     * guide for each chapter, with the subtitle "Chapter one of the main story" and so on. Each step
+     * of a chapter is one line of the guide's text, and it starts with the quest's name and level:
+     * "A Light in Harrowford level 1 Take it from …". A chapter guide also links to side quests that
+     * are on the way, so a link alone doesn't make a quest part of the main story; the quest must
+     * start one of the steps.
+     */
+    private static function mainStoryChapters(): array
+    {
+        $chapters = [];
+        $guides = (new WikiEntryParser(AldervastSite::get('wiki/guides.html'), 'wiki/guides.html'))->entries();
+        foreach ($guides as $guide) {
+            if (stripos($guide['sub'], 'main story') === false) {
+                continue;
+            }
+            foreach ($guide['links'] as $name => $url) {
+                foreach ($guide['text'] as $line) {
+                    if (str_contains($url, '/quests.html#') && str_starts_with($line, "{$name} level ")) {
+                        $chapters[$url] = $guide['name'];
+                    }
+                }
+            }
+        }
+
+        return $chapters;
+    }
+
+    /**
+     * The quests whose target is a world boss: quest URL => the boss's name, e.g. "Calathrax, Elder Wyrm".
+     *
+     * A quest entry names its target only in the text of an objective ("Help slay Calathrax"), with
+     * no link to the boss. worldbosses.html links the other way: a world boss that is fought for a
+     * quest links to that quest. The world bosses that wake on a timer have no quest, so they link
+     * to none.
+     */
+    private static function worldBossQuests(): array
+    {
+        $quests = [];
+        $bosses = (new WikiEntryParser(AldervastSite::get('wiki/worldbosses.html'), 'wiki/worldbosses.html'))->entries();
+        foreach ($bosses as $boss) {
+            foreach ($boss['links'] as $url) {
+                if (str_contains($url, '/quests.html#')) {
+                    $quests[$url] = $boss['name'];
+                }
+            }
+        }
+
+        return $quests;
     }
 
     /**

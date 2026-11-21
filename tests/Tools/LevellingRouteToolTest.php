@@ -43,6 +43,7 @@ final class LevellingRouteToolTest extends FixtureTestCase
             'region' => 'Brightmeadow Vale',
             'given_by' => 'Captain Odric Hale · in Harrowford',
             'needs' => 'The Restless Dead',
+            'main_story' => 'The Unlit Road',
             'url' => 'https://aldervast.online/wiki/quests.html#quest-ms03_crypt',
         ], $quests['The Hollow Crypt']);
     }
@@ -90,8 +91,65 @@ final class LevellingRouteToolTest extends FixtureTestCase
     {
         $dungeons = array_column($this->route(50)['dungeons'], null, 'name');
 
-        $this->assertSame(['name' => 'The Cinderwell', 'kind' => 'Raid', 'level' => 50, 'url' => 'https://aldervast.online/wiki/dungeons.html#dungeon-cinderwell'], $dungeons['The Cinderwell']);
+        $this->assertSame([
+            'name' => 'The Cinderwell',
+            'kind' => 'Raid',
+            'level' => 50,
+            'quests' => 'The Net Over Kaldris',
+            'url' => 'https://aldervast.online/wiki/dungeons.html#dungeon-cinderwell',
+        ], $dungeons['The Cinderwell']);
         $this->assertSame('Group dungeon', $dungeons['The Far Side']['kind']);
+    }
+
+    public function test_a_dungeon_names_the_quest_that_leads_into_it(): void
+    {
+        $dungeons = array_column($this->route(32)['dungeons'], null, 'name');
+
+        $this->assertSame('The Rest of the Company', $dungeons['The Wintering Hold']['quests']);
+        // The Old Chandlery is the festival dungeon, and no quest leads into it.
+        $this->assertArrayNotHasKey('quests', $dungeons['The Old Chandlery']);
+    }
+
+    public function test_a_dungeon_that_is_only_open_at_certain_times_says_when(): void
+    {
+        $dungeons = array_column($this->route(32)['dungeons'], null, 'name');
+
+        $this->assertSame(
+            'Only while Lanternfast runs (20 November to 6 January), and shown in the journal only then',
+            $dungeons['The Old Chandlery']['open']
+        );
+        $this->assertArrayNotHasKey('open', $dungeons['The Wintering Hold']);
+    }
+
+    public function test_a_main_story_quest_is_marked_with_its_chapter(): void
+    {
+        $quests = array_column($this->route(33)['quests'], null, 'name');
+
+        $this->assertSame('The Unlit Road', $quests['Beyond the Lattice Gate']['main_story']);   // chapter one
+        $this->assertSame('The Last Lantern', $quests['Threads Unbound']['main_story']);         // chapter two
+
+        // The last chapter's guide is called "The main story", without a chapter number.
+        $last = array_column($this->route(60)['quests'], null, 'name');
+        $this->assertSame('The Coat', $last['Unfinished']['main_story']);
+    }
+
+    public function test_a_quest_whose_target_is_a_world_boss_names_the_boss(): void
+    {
+        $quests = array_column($this->route(30)['quests'], null, 'name');
+
+        $this->assertSame('Calathrax, Elder Wyrm', $quests['Wyrmfall']['world_boss']);
+        // A quest that leads into a raid is not a world boss quest.
+        $this->assertArrayNotHasKey('world_boss', $quests['Spire of the Sundered Crown']);
+    }
+
+    public function test_a_side_quest_that_a_chapter_guide_links_to_is_not_marked(): void
+    {
+        // The guide to The Unlit Road links to The Frozen Company as a side quest on the way, but
+        // no step of the chapter is that quest.
+        $quests = array_column($this->route(32)['quests'], null, 'name');
+
+        $this->assertArrayNotHasKey('main_story', $quests['The Frozen Company']);
+        $this->assertArrayNotHasKey('main_story', $quests['Wyrmfall']);
     }
 
     public function test_a_dungeon_that_scales_suits_every_level_in_its_range(): void

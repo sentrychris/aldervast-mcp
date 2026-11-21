@@ -205,9 +205,12 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
 3. ~~`list_category(category?)`~~: done (`src/Tools/ListCategoryTool.php`). It also covers search misses caused by
    wording ("big deer boss" vs "Moss Stag"): the model browses the category and matches by meaning. The
    heavier fix, semantic search with embeddings, needs a new provider and API key; ask Chris first.
-4. ~~`levelling_route(level)`~~: done (`src/Tools/LevellingRouteTool.php`). Reads regions.html, dungeons.html
-   and quests.html once each with `WikiEntryParser::entries()`. README.md, "How levelling_route decides",
-   has the rules and the data quirks (region ranges stop at 34; "can take it" removes nothing today).
+4. ~~`levelling_route(level)`~~: done (`src/Tools/LevellingRouteTool.php`). Reads regions.html, dungeons.html,
+   quests.html, guides.html (for main-story chapters) and worldbosses.html (for world boss quests) once
+   each with `WikiEntryParser::entries()`.
+   README.md, "How levelling_route decides", has the rules and the data quirks (region ranges stop at 34;
+   "can take it" removes nothing today; why main story comes from the chapter guides, not from the
+   `quest-ms` ids).
 5. `latest_release()`: the newest version and its notes, parsed from `/changelog.html`.
 6. MCP **resources** (`resources/list`, `resources/read`) for whole pages, and **prompts**
    (e.g. "plan my build"), once the tools are solid. Declare each capability in `initialize`.

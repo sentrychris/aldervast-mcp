@@ -53,7 +53,7 @@ So `src/Tools/` is the whole MCP product, with no learning or measuring code mix
 | `search_wiki` | `query`, optional `category` and `limit` (default 10, max 25) | The best-matching wiki entries: name, category, short summary, URL. |
 | `get_wiki_entry` | `url_or_name`, optional `category` | One full entry: description, facts, sections, and links to the entries it mentions. |
 | `list_category` | optional `category`, `offset`, `limit` (default 50, max 100) | Every entry in a category: name, summary, URL. With no category, the categories and their sizes. |
-| `levelling_route` | `level` (1 to 60) | The regions, dungeons and quests that suit that level, with levels, quest givers, the quest that must come first, and URLs. |
+| `levelling_route` | `level` (1 to 60) | The regions, dungeons and quests that suit that level, with levels, quest givers, the quest that must come first, the quest that leads into each dungeon, when a dungeon is only open at certain times, the main-story chapter of each main-story quest, the boss of a world boss quest, and URLs. |
 
 ### When search misses: words versus meaning
 
@@ -94,7 +94,7 @@ the real categories, so that the model can correct its next call.
 
 ### How levelling_route decides what suits a level
 
-"I'm level 23, where should I go?" needs three wiki pages: `regions.html`, `dungeons.html` (story
+"I'm level 23, where should I go?" needs three wiki pages (and two more, below): `regions.html`, `dungeons.html` (story
 dungeons, group dungeons, raids and the trial) and `quests.html` (188 quests). Every entry there has
 a Level fact, and the tool keeps what suits the level:
 
@@ -116,9 +116,25 @@ Things to know:
 - **"Can already take it" removes nothing on today's wiki**: every quest opens at least 3 levels
   below its own level, so any quest within 2 levels is open. The check stays as a safeguard for later
   game releases.
-- **The tool doesn't say which quests are main story.** Many quest ids start with `quest-ms`, but
-  nothing on the wiki says what that means, so the tool doesn't guess.
-- It reads each page once (`WikiEntryParser::entries()`). A call takes about a quarter of a second.
+- **Each dungeon names the quest that leads into it** (`quests`), from the dungeon's Quests fact.
+  28 of the 30 dungeons have one. Without it, Claude would have to guess the link from the names.
+- **A dungeon that is only open at certain times says when** (`open`), from its Open fact. Today
+  only the festival dungeon has one. Without it, Claude told a player that they could run the
+  festival dungeon "any time".
+- **Main-story quests carry their chapter** (`main_story`, e.g. "The Unlit Road"). A quest entry
+  doesn't say whether it's main story, so the tool reads a fourth page, `guides.html`. It has one
+  guide for each chapter of the main story, and each step of the guide starts with the quest's name
+  and level ("A Light in Harrowford level 1 …"). A quest is marked when it starts a step of a chapter.
+  The chapter guides also link to 48 side quests on the way, so a link alone isn't enough. This rule
+  marks 85 quests, and they're the same 85 whose ids start with `quest-ms`. The tool doesn't use the
+  ids, because nothing on the wiki says what `ms` means.
+- **A quest whose target is a world boss names the boss** (`world_boss`). The quest entry mentions
+  the boss only in the text of an objective ("Help slay Calathrax"), so the tool reads a fifth page,
+  `worldbosses.html`, where a boss that is fought for a quest links to it. Today that's one quest,
+  Wyrmfall. Before this, Claude called Wyrmfall a world boss quest because of its URL id
+  (`quest-rq_world_boss`), which was right but was a guess.
+- It reads each page once (`WikiEntryParser::entries()`). Once the pages are in the cache, a call
+  takes about a tenth of a second.
 
 ### What get_wiki_entry is for
 
@@ -362,7 +378,7 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `SearchWikiToolTest` | How results are ranked, the category filter, the result limit, the " …" on cut summaries, and HTML codes such as `&#x2019;` |
 | `GetWikiEntryToolTest` | Different ways of writing a URL, names that several entries share, suggestions for near misses, refusing other websites, and shortening long output |
 | `ListCategoryToolTest` | The list of categories and their sizes, pages of results for big categories, category labels, and cut summaries |
-| `LevellingRouteToolTest` | Which regions, dungeons and quests suit a level: both ends of a region's range, dungeons 2 levels away and not 3, a dungeon that scales, the 20-quest cut, the note when no region fits, and refused levels |
+| `LevellingRouteToolTest` | Which regions, dungeons and quests suit a level: both ends of a region's range, dungeons 2 levels away and not 3, a dungeon that scales, the quest that leads into a dungeon, when a dungeon is open, main-story chapters (and a side quest that a chapter guide links to, which stays unmarked), world boss quests, the 20-quest cut, the note when no region fits, and refused levels |
 | `ServerToolTest` | The server list: each server's fields, the list without the object around it, and a definition with no inputs |
 | `ToolDefinitionsTest` | Every tool's definition: the name matches the tool, the description isn't empty, the input schema is a JSON object, every input has a type and a description, and every required input exists |
 | `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
@@ -376,8 +392,8 @@ You can ask two different questions about an MCP server, and these tests answer 
 
 ### Saved copies of the pages (fixtures)
 
-The offline tests don't use the live website. They use saved copies of eight wiki pages and
-`servers.json` in `tests/fixtures/` (about 1.5 MB, committed to git). Saved test data like this is called a
+The offline tests don't use the live website. They use saved copies of ten wiki pages and
+`servers.json` in `tests/fixtures/` (about 1.7 MB, committed to git). Saved test data like this is called a
 fixture. When the environment variable `ALDERVAST_FIXTURES` is set, `AldervastSite` reads pages
 from that folder and doesn't download anything. Each offline test sets it before it runs. As a
 result, the tests give the same result every time, work offline, and don't fail because the

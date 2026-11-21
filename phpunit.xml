@@ -19,8 +19,14 @@
     </testsuites>
     <groups>
         <exclude>
-            <!-- Live tests hit aldervast.online, so they only run when asked for. -->
+            <!-- Live tests use aldervast.online, so they only run when asked for. -->
             <group>live</group>
         </exclude>
     </groups>
+    <!-- The code that code coverage measures ("composer test:coverage"). -->
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
 </phpunit>

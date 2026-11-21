@@ -117,6 +117,9 @@ changes when a new version of the game is released. Delete `cache/` to download 
 - **PHP 8.1 or newer** on your PATH (`php -v`) to run the tools. The tests need **PHP 8.4.1 or
   newer**, because PHPUnit 13 requires it. Herd, Laragon or the windows.php.net zip all work.
 - **Composer** (`composer -V`).
+- **Xdebug or PCOV**, only for `composer test:coverage` and `composer test:mutation`. If Xdebug's `xdebug.start_with_request` is
+  `yes`, every PHP command waits about 0.2 seconds for a debugger and prints a "Time-out connecting"
+  message to stderr. That's harmless, but `start_with_request = trigger` avoids it.
 - PHP's `curl` and `openssl` extensions enabled. Herd and Laragon have them on already. With a plain
   PHP zip, copy `php.ini-development` to `php.ini` and uncomment `extension=curl` and `extension=openssl`.
 
@@ -236,6 +239,9 @@ output. Remove it with `claude mcp remove aldervast`.
 ```powershell
 composer test                   # offline tests: fast, free, and no network needed
 composer test:live              # tests against the real website
+composer test:coverage          # offline tests with code coverage; fails if a tool is below 80%
+composer test:coverage-html     # a coverage report to open in a browser: .phpunit.cache/html/index.html
+composer test:mutation          # mutation testing (about 90 seconds); fails if the score is below 90%
 php tests/update-fixtures.php   # download fresh copies of the pages that the offline tests use
 ```
 
@@ -256,6 +262,8 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `GetWikiEntryToolTest` | Different ways of writing a URL, names that several entries share, suggestions for near misses, refusing other websites, and shortening long output |
 | `ListCategoryToolTest` | The list of categories and their sizes, pages of results for big categories, category labels, and cut summaries |
 | `ServerToolTest` | The server list: each server's fields, the list without the object around it, and a definition with no inputs |
+| `ToolDefinitionsTest` | Every tool's definition: the name matches the tool, the description isn't empty, the input schema is a JSON object, every input has a type and a description, and every required input exists |
+| `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
 | `EveryToolHasTestsTest` | That every tool in `src/Tools.php` has its own test class, with at least three tests that call the tool's `run()`. If someone adds a tool without tests, this test fails and says which file to create |
 | `McpServerTest` | The MCP protocol. It starts `mcp-server.php` as a separate process, as Claude Desktop does. Then it checks that the server writes only JSON-RPC to its output, doesn't reply to notifications, sends correct schemas, and reports tool failures with `isError` |
 
@@ -267,6 +275,11 @@ fixture. When the environment variable `ALDERVAST_FIXTURES` is set, `AldervastSi
 from that folder and doesn't download anything. Each offline test sets it before it runs. As a
 result, the tests give the same result every time, work offline, and don't fail because the
 website changed.
+
+One file in that folder isn't from the website: `tests/fixtures/wiki_handmade.html` was made by
+hand. It holds edge cases that the real pages don't have, such as a value over 600 characters, a
+section over 30 lines, exactly 40 links, and a table row with more cells than headings. The comment
+at the top of the file lists them all. `tests/update-fixtures.php` never downloads or overwrites it.
 
 ### Live tests
 
@@ -283,6 +296,70 @@ If a live test fails, the website has changed:
 1. Run `php tests/update-fixtures.php` to download fresh copies of the pages.
 2. Run `composer test`. The tests that fail show which parts of the code need to change.
 3. Change the code until all tests pass. Then commit the code and the new copies together.
+
+### Code coverage
+
+Code coverage is a record of which lines of code ran while the tests ran. `composer test:coverage`
+runs the offline tests with coverage switched on, and then `tests/check-coverage.php` checks the
+result: **every tool must have at least 80% of its lines covered**, or the command fails and lists
+the tools that are below it. Other classes are shown for information only. For example, most of
+`AldervastSite` downloads from the website, so only the live tests run that code.
+
+This needs Xdebug or PCOV. The command switches Xdebug's coverage mode on by itself, so your
+`php.ini` can keep its normal Xdebug settings. To see exactly which lines aren't covered, run
+`composer test:coverage-html` and open `.phpunit.cache/html/index.html` in a browser.
+
+### Mutation testing
+
+Code coverage shows that a line ran, not that a test would notice if the line were wrong. Mutation
+testing checks that. `composer test:mutation` runs **Infection**, which makes hundreds of small
+changes to the code in `src/`, one at a time: a `>` becomes `>=`, a `+ 1` becomes `- 1`, a line is
+removed. Each changed copy is called a mutant. For each mutant, Infection runs the tests that cover
+that line:
+
+- if a test fails, the mutant is **killed**: the tests noticed the change, which is good;
+- if every test still passes, the mutant **escaped**: the tests didn't notice.
+
+The **mutation score** (MSI) is the percentage of mutants killed. It is about 94% today, and the
+command fails if it drops below 90% (`minMsi` in `infection.json5`). To see which mutants escaped,
+read `.phpunit.cache/infection.log`; each entry shows the line and the change.
+
+About 30 mutants always escape, because they don't change what the code does, so 100% isn't
+possible. The kinds that are harmless here:
+
+- `explode('#', $path, 2)` changed to `1` or `3`, where only the first part is used, or the part
+  after "#" is removed again later anyway;
+- `mb_strtolower()` changed to `strtolower()` on text that is always plain ASCII, such as category names;
+- `preg_quote()` removed, where the query has already been split on everything that isn't a letter
+  or a digit, so no special regex character can reach it;
+- `array_values()` removed, where the next step renumbers the array anyway;
+- `maxAgeSeconds: 0` changed to `-1` or `1` in `ServerTool`, which works the same in practice.
+
+Infection doesn't change the `definition()` methods (`global-ignore` in `infection.json5`). They are
+mostly description text for the model, and no test can say which wording is right.
+`ToolDefinitionsTest` checks their structure instead.
+
+Three things to know when you run it:
+
+- It needs Xdebug or PCOV, like code coverage. The Composer command switches Xdebug's coverage mode
+  on by itself.
+- Herd sets PHP's `auto_prepend_file` to its own `dump()` helper, and Infection refuses to start
+  with it. The Composer command switches it off for the run (`-d auto_prepend_file=`).
+- Classes must load by PSR-4, not under `autoload.files` in `composer.json`. Composer loads the
+  files listed there as soon as PHPUnit starts, before Infection can swap in a mutant, so every
+  mutant would escape. That happened here: the first run killed 0 of 579 mutants.
+
+### How the checks fit together
+
+1. `EveryToolHasTestsTest` (in `composer test`): every tool has a test class with at least three tests
+   that call its `run()`.
+2. `composer test:coverage`: those tests run at least 80% of the tool's code.
+3. `composer test:mutation`: the tests notice when that code is changed, for at least 90% of changes.
+4. A person reads new tests. No automatic check can tell whether a test checks the right *thing*.
+
+`composer test` takes a few seconds, `composer test:coverage` a little longer, and
+`composer test:mutation` about a minute and a half. So use `composer test` while you work, and the
+other two before you commit.
 
 ## Troubleshooting
 

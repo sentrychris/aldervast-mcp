@@ -36,8 +36,10 @@ src/WikiEntryParser.php   one entry's HTML -> array (article or table row)
 src/ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
 src/AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
 tests/              PHPUnit: offline tests on tests/fixtures/ (saved wiki pages), plus a "live" group
-phpunit.xml         excludes the live group by default
-composer.json       PHP >= 8.1, guzzlehttp/guzzle ^7.8, autoload "files"
+phpunit.xml         excludes the live group by default; <source> sets what code coverage measures (src/)
+tests/check-coverage.php  fails "composer test:coverage" if any tool has under 80% line coverage
+composer.json       PHP >= 8.1, guzzlehttp/guzzle ^7.8; classes load by PSR-4 from src/, helpers.php by "files"
+infection.json5     settings for Infection (mutation testing), including the minimum score
 .env.example        ANTHROPIC_API_KEY placeholder (the real .env is gitignored)
 .mcp.json           registers mcp-server.php with Claude Code for this folder
 docs/notes.md       Chris's own learning notes. Don't rewrite them unless asked.
@@ -50,10 +52,12 @@ The machine is Windows with PowerShell. PHP and Composer are on the PATH.
 
 ```powershell
 composer install
-composer dump-autoload            # after adding a file to "autoload"
 php -l mcp-server.php             # syntax check
 composer test                     # offline tests (no network); run after every change
-composer test:live                # checks the real site still matches what the code expects
+composer test:live                # checks that the real website still works with the code
+composer test:coverage            # offline tests with code coverage (needs Xdebug or PCOV); fails if a tool is below 80%
+composer test:coverage-html       # writes .phpunit.cache/html/index.html, to see which lines no test runs
+composer test:mutation            # mutation testing with Infection (about 90 s); fails below a score of 90%
 php tests/update-fixtures.php     # refresh tests/fixtures/ after the site changes on purpose
 php agent.php "your question"     # needs ANTHROPIC_API_KEY in .env, and costs a little money
 
@@ -80,12 +84,12 @@ Every tool is one class in `src/`, shaped like `ServerTool`:
 - `run(array $input): string` does the work and returns text (often JSON) for the model to read.
   Throw on failure; both callers turn exceptions into an error result.
 
-Then add it in two places:
-
-1. `composer.json`, under `autoload.files` (or switch to PSR-4 once there are many classes; that's
-   fine). Then run `composer dump-autoload`.
-2. `src/Tools.php`: add the class to `Tools::ALL`. `mcp-server.php`, `agent.php` and the tests all
-   read that list, so nothing else needs to change.
+Then add the class to `Tools::ALL` in `src/Tools.php`. `mcp-server.php`, `agent.php` and the tests all
+read that list, so nothing else needs to change. Composer finds the class by itself: `composer.json`
+maps each class name to `src/<ClassName>.php` (PSR-4), so the file name must match the class name.
+Only `src/helpers.php`, which holds plain functions, is loaded by name under `autoload.files`. Don't add
+classes there: Composer would load them at startup, before Infection can swap in its changed copies,
+and mutation testing would quietly stop working.
 
 Download from the website through `AldervastSite::get()` or `json()`, not with your own Guzzle call,
 so that the request uses the cache, sends the project's User-Agent, and can read the saved copies in
@@ -94,8 +98,13 @@ the tests. For data that must always be fresh, pass a maximum age of 0, as `Serv
 Write a test class in `tests/` that extends `FixtureTestCase`. If the tool reads a page that isn't
 saved yet, add the page to `tests/update-fixtures.php` and run that script. Then run `composer test`.
 This is checked: `EveryToolHasTestsTest` fails until `tests/<ToolClass>Test.php` exists, has at least
-three test methods of its own, and calls `<ToolClass>::run(`. Don't weaken that test to get a new tool
-through; write the tests.
+three test methods of its own, and calls `<ToolClass>::run(`. `ToolDefinitionsTest` also checks the
+new tool's definition. Then run `composer test:coverage`: it fails until the tool's tests cover at least
+80% of its lines. Then run `composer test:mutation`: it fails if the mutation score drops below 90%.
+If a new tool's mutants escape, read them in `.phpunit.cache/infection.log` and add tests that kill the
+real ones. Don't weaken these checks (or lower `MIN_PERCENT` in `tests/check-coverage.php`, or `minMsi`
+in `infection.json5`) to get a new tool through; write the tests. For edge cases that no real wiki page
+has, add an entry to `tests/fixtures/wiki_handmade.html` (the comment at its top lists what's there).
 After that, try the tool by piping a `tools/call` request into the server, and finally through a client.
 
 ## MCP rules that break things when you forget them

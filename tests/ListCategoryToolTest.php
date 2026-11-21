@@ -59,4 +59,31 @@ final class ListCategoryToolTest extends FixtureTestCase
         $this->assertStringEndsWith(' …', $classes['Ravager']);
         $this->assertStringEndsWith('anchor any group.', $classes['Warden']);
     }
+
+    public function test_spaces_around_the_category_are_ignored(): void
+    {
+        $result = $this->list(['category' => '  world boss ']);
+
+        $this->assertSame(['World boss'], $result['categories']);
+        $this->assertSame(10, $result['total']);
+    }
+
+    public function test_a_negative_offset_starts_at_the_beginning(): void
+    {
+        $first = $this->list(['category' => 'Raid'])['entries'][0];
+
+        $this->assertSame($first, $this->list(['category' => 'Raid', 'offset' => -5])['entries'][0]);
+    }
+
+    public function test_limit_is_used_and_kept_at_one_or_more(): void
+    {
+        $this->assertCount(5, $this->list(['category' => 'Base item', 'limit' => 5])['entries']);
+        $this->assertCount(1, $this->list(['category' => 'Base item', 'limit' => 0])['entries']);
+    }
+
+    public function test_without_a_category_it_says_what_to_do_next(): void
+    {
+        // This is text for the model. The test pins it, so that a change to it is deliberate.
+        $this->assertSame('Call list_category again with one of these categories.', $this->list([])['message']);
+    }
 }

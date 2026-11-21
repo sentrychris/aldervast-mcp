@@ -145,6 +145,18 @@ final class SearchWikiTool
     }
 
     /**
+     * The score of one entry for a query, worked out the same way as in search(). It's public so that
+     * SearchWikiToolTest can check the scoring rules on hand-made entries. search() doesn't use it,
+     * because it builds the word patterns once for all 1,840 entries rather than once per entry.
+     */
+    public static function scoreFor(array $entry, string $query): int
+    {
+        $phrase = mb_strtolower($query);
+
+        return self::score($entry, $phrase, self::wordPatterns($phrase));
+    }
+
+    /**
      * Scores one entry against the query. 0 means "not a match".
      *
      * The weights are a judgement call. They're chosen so that a match in the name scores higher

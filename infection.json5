@@ -1,0 +1,31 @@
+// Settings for Infection, the mutation testing tool ("composer test:mutation").
+// README.md explains mutation testing, under "Tests".
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "phpUnit": {
+        "configDir": "."
+    },
+    "tmpDir": ".phpunit.cache/infection",
+    "logs": {
+        "text": ".phpunit.cache/infection.log",
+        "summary": ".phpunit.cache/infection-summary.log",
+        "html": ".phpunit.cache/infection.html"
+    },
+    "mutators": {
+        "@default": true,
+        // Don't mutate the tool definitions. They are mostly description text for the model, and no
+        // test can say which wording is right. ToolDefinitionsTest checks their structure instead.
+        "global-ignore": ["*::definition"]
+    },
+    // Herd sets auto_prepend_file to its dump() helper, and Infection refuses to run with it.
+    "initialTestsPhpOptions": "-d auto_prepend_file=",
+    "timeout": 30,
+    // The run fails if the score drops below these. The score was 93% when they were set. About 30
+    // of the mutants that escape are harmless (the code works the same either way), so 100% isn't
+    // possible. README.md lists the kinds of harmless mutants, under "Mutation testing".
+    "minMsi": 90,
+    "minCoveredMsi": 90
+}

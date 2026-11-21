@@ -45,7 +45,9 @@ final class WikiEntryParser
         // Real-world HTML is rarely perfect, so libxml produces warnings. Collect them instead of
         // printing them, because a warning on stdout would break the MCP protocol.
         $previous = libxml_use_internal_errors(true);
-        // The <?xml> prefix tells libxml the page is UTF-8. Without it, "·" and "“" come out garbled.
+        // The <?xml> prefix tells libxml that the page is UTF-8. The wiki's pages already say so in a
+        // <meta charset> tag, but HTML without that tag would come out garbled ("é" as "Ã©"), so the
+        // prefix is a safety net. WikiEntryParserTest checks it with HTML that has no <meta> tag.
         $doc->loadHTML('<?xml encoding="utf-8"?>' . $html);
         libxml_clear_errors();
         libxml_use_internal_errors($previous);

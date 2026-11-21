@@ -14,6 +14,9 @@ declare(strict_types=1);
  *
  * The script downloads through AldervastSite, which keeps copies in cache/ for an hour. So a page
  * can be up to an hour old.
+ *
+ * tests/fixtures/wiki_handmade.html is different: it was made by hand for the tests and isn't on the
+ * website. This script never downloads or overwrites it.
  */
 
 require __DIR__ . '/../vendor/autoload.php';

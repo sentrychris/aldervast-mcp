@@ -91,4 +91,99 @@ final class WikiEntryParserTest extends FixtureTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->entry('wiki/dungeons.html', "x'] | //*[@id='y");
     }
+
+    public function test_the_heading_and_label_are_not_repeated_in_the_text(): void
+    {
+        $e = $this->entry('wiki/bosses.html', 'monster-ossric');
+
+        // Only the quote is loose text. The heading and the "Boss" label are read separately.
+        $this->assertSame(['“None pass the Lantern Gate while I stand.”'], $e['text']);
+    }
+
+    // The tests below use tests/fixtures/wiki_handmade.html, a page made by hand with edge cases
+    // that the real wiki pages don't have. The comment at the top of that file lists them.
+
+    public function test_accented_characters_are_read_correctly(): void
+    {
+        $this->assertSame('Café Limits', $this->entry('wiki/handmade.html', 'test-limits')['name']);
+    }
+
+    public function test_html_without_a_charset_tag_is_still_read_as_utf8(): void
+    {
+        // No <meta charset> tag here, unlike the wiki's pages. Without the parser's UTF-8 prefix,
+        // libxml would read "é" as "Ã©".
+        $html = '<article class="entry" id="a"><h3>Café · “quoted”</h3></article>';
+
+        $this->assertSame('Café · “quoted”', (new WikiEntryParser($html, 'wiki/a.html'))->entry('a')['name']);
+    }
+
+    public function test_a_second_description_goes_into_the_text(): void
+    {
+        // Region entries have two descriptions: a short one, then a longer one.
+        $e = $this->entry('wiki/regions.html', 'region-frostspire');
+
+        $this->assertStringStartsWith('Knife-edged mountains crowned by Highwatch Keep.', $e['description']);
+        $this->assertStringStartsWith('Knife-edged granite mountains', $e['text'][0]);
+    }
+
+    public function test_facts_from_two_lists_are_merged_and_a_value_without_a_label_is_ignored(): void
+    {
+        $facts = $this->entry('wiki/handmade.html', 'test-limits')['facts'];
+
+        $this->assertSame(['Long', 'Accented', 'Exactly 600', 'Twice', 'Merged'], array_keys($facts));
+        $this->assertSame('first; second', $facts['Twice']);
+        $this->assertSame('from a second list', $facts['Merged']);
+    }
+
+    public function test_loose_text_skips_empty_blocks_figures_and_svg(): void
+    {
+        $e = $this->entry('wiki/handmade.html', 'test-limits');
+
+        $this->assertSame(['Text before any heading.', 'Beforeafter'], $e['text']);
+    }
+
+    public function test_a_repeated_heading_adds_to_the_same_section(): void
+    {
+        $this->assertSame(['One', 'Two'], $this->entry('wiki/handmade.html', 'test-limits')['sections']['Twice']);
+    }
+
+    public function test_lists_tables_quotes_and_nested_blocks_become_lines(): void
+    {
+        $sections = $this->entry('wiki/handmade.html', 'test-limits')['sections'];
+
+        $this->assertSame(['First step', 'Second step'], $sections['Steps']);
+        $this->assertSame(['A | B', '1 | 2'], $sections['Table']);
+        $this->assertSame(['“Quote.” — Someone'], $sections['Quote']);
+        $this->assertSame(['a b'], $sections['Blocks']);
+    }
+
+    public function test_a_description_inside_a_section_stays_in_the_section(): void
+    {
+        $e = $this->entry('wiki/handmade.html', 'test-limits');
+
+        $this->assertSame('A page made by hand for the tests.', $e['description']);
+        $this->assertSame(['A description inside a section.'], $e['sections']['Journal']);
+    }
+
+    public function test_links_are_resolved_and_each_url_is_listed_once(): void
+    {
+        $links = $this->entry('wiki/handmade.html', 'test-limits')['links'];
+
+        $this->assertSame([
+            'Ossric' => 'https://aldervast.online/wiki/bosses.html#monster-ossric',
+            'Crypt' => 'https://aldervast.online/wiki/dungeons.html#dungeon-hollow_crypt',
+            'External' => 'HTTPS://Example.com/page',
+            'Colon later' => 'https://aldervast.online/wiki/notes.html?see=http:',
+        ], array_slice($links, 0, 4, true));
+        // "Ossric again" links to the same URL as "Ossric", so it isn't listed twice.
+        $this->assertArrayNotHasKey('Ossric again', $links);
+    }
+
+    public function test_a_table_row_with_more_cells_than_headings_labels_the_extra_cell(): void
+    {
+        $facts = $this->entry('wiki/handmade.html', 'test-row')['facts'];
+
+        // The first cell is the name, so it isn't a fact.
+        $this->assertSame(['Level' => '5', 'Column 3' => 'extra'], $facts);
+    }
 }

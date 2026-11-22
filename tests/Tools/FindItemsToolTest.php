@@ -79,7 +79,7 @@ final class FindItemsToolTest extends FixtureTestCase
 
     public function test_an_exact_type_matches_only_that_type(): void
     {
-        $result = $this->find(['type' => 'CROSSBOWS']);
+        $result = $this->find(['type' => '  CROSSBOWS ']);
 
         $this->assertSame(['Crossbows'], $result['types']);
         $this->assertSame(['Crossbows'], array_values(array_unique(array_column($result['base_items'], 'type'))));
@@ -108,6 +108,8 @@ final class FindItemsToolTest extends FixtureTestCase
         $this->assertSame(43 - 15, $default['base_items_not_shown']);
 
         $this->assertCount(1, $this->find(['type' => 'body armour', 'limit' => 0])['base_items']);
+        // When the limit is exactly the number found, nothing is left out, so there's no count of it.
+        $this->assertArrayNotHasKey('base_items_not_shown', $this->find(['type' => 'body armour', 'limit' => 43]));
         $this->assertCount(43, $this->find(['type' => 'body armour', 'limit' => 50])['base_items']);
         $this->assertCount(43, $this->find(['type' => 'body armour', 'limit' => 500])['base_items']);
     }
@@ -139,6 +141,14 @@ final class FindItemsToolTest extends FixtureTestCase
         );
     }
 
+    public function test_levels_1_and_60_are_allowed(): void
+    {
+        $this->assertSame(
+            'Items of these types with a level from 1 to 60, highest level first.',
+            $this->find(['type' => 'Crossbows', 'min_level' => 1, 'max_level' => 60])['rule']
+        );
+    }
+
     public static function badLevels(): array
     {
         return [
@@ -146,6 +156,7 @@ final class FindItemsToolTest extends FixtureTestCase
             'too high' => [['max_level' => 61], 'max_level must be a whole number from 1 to 60'],
             'words' => [['min_level' => 'ten'], 'min_level must be a whole number from 1 to 60'],
             'decimal' => [['min_level' => 2.5], 'min_level must be a whole number from 1 to 60'],
+            'digits then letters' => [['min_level' => '2a'], 'min_level must be a whole number from 1 to 60'],
         ];
     }
 

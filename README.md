@@ -727,8 +727,8 @@ php evals/run.php --only=deer-boss --reps=1     # just one question, once
 php evals/run.php --variant=v1                  # a separate set of results, e.g. after a change
 ```
 
-**The questions** are in `evals/cases.json`: 28 questions written the way that players type them
-("whats the crypt boss in aldervast", "aldervast lvl 50 raid?"), 6 of them asked for real in Claude
+**The questions** are in `evals/cases.json`: 32 questions written the way that players type them
+("whats the crypt boss in aldervast", "aldervast lvl 50 raid?"), 7 of them asked for real in Claude
 Desktop or seen in the tool call log. Three ask about things that don't exist (a necromancer class,
 a werewolf boss), to check that Claude says no instead of inventing an answer. Every expected
 answer was checked against the wiki.
@@ -753,7 +753,7 @@ The report shows such a question with no score; the terminal summary counts the 
 
 **What a run prints:** one line per run (PASS or FAIL, the route of tool calls, and why it failed),
 then each score as a percentage with its **95% interval**. The interval is how far the score could
-move by chance alone: with 28 questions and 2 runs each, about ±13 points. A change that moves the
+move by chance alone: with 32 questions and 2 runs each, about ±12 points. A change that moves the
 score by less than that isn't evidence of anything; run more questions or more runs to see smaller
 changes.
 

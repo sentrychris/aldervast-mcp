@@ -3,7 +3,7 @@
         "The eval's test questions, written the way players type them. evals/run.php runs each one through the agent loop and checks two things:",
         "found: one of these texts appears in a tool result, i.e. Claude was shown the right wiki entry. An empty list means any wiki tool call counts (for questions about things that don't exist).",
         "answer: every pattern matches Claude's final answer. Each pattern is a regular expression, matched ignoring case.",
-        "source: 'chris' for questions asked in Claude Desktop or seen in the tool call log; 'written' for variations in the same style. Every expected answer was checked against the wiki on 2026-11-21 (game version 1.14.95)."
+        "source: 'chris' for questions asked in Claude Desktop or seen in the tool call log; 'written' for variations in the same style. Every expected answer was checked against the wiki on 2026-11-21 (game version 1.14.95); the four 'item' cases on 2026-11-22, same version."
     ],
     "cases": [
         {"id": "deer-boss", "source": "chris", "tags": ["boss"], "question": "What is the big deer boss in Aldervast called?",
@@ -70,6 +70,14 @@
         {"id": "no-paladin", "source": "written", "tags": ["does-not-exist"], "question": "is paladin a class in aldervast",
          "found": ["wiki/classes.html#class-"], "answer": ["\\b(no|not|isn['’]t|aren['’]t|doesn['’]t|don['’]t)\\b"]},
         {"id": "no-werewolf", "source": "written", "tags": ["does-not-exist"], "question": "where do i find the werewolf boss in aldervast",
-         "found": [], "answer": ["\\b(no|not|isn['’]t|aren['’]t|doesn['’]t|don['’]t|couldn['’]t|can['’]t)\\b"]}
+         "found": [], "answer": ["\\b(no|not|isn['’]t|aren['’]t|doesn['’]t|don['’]t|couldn['’]t|can['’]t)\\b"]},
+        {"id": "warden-armour-20", "source": "chris", "tags": ["item"], "question": "What's the best body armour for a level 20 Warden?",
+         "found": ["wiki/items.html#item-templar_plate"], "answer": ["Templar Plate"]},
+        {"id": "crossbow-30", "source": "written", "tags": ["item"], "question": "whats the best crossbow i can use at level 30 in aldervast",
+         "found": ["wiki/items.html#item-siege_crossbow"], "answer": ["Siege Crossbow"]},
+        {"id": "unique-rings-35", "source": "written", "tags": ["item"], "question": "which unique rings can i get before level 35 in aldervast",
+         "found": ["wiki/uniques.html#unique-u_rimeheart", "wiki/uniques.html#unique-u_lampblack"], "answer": ["Rimeheart", "Lampblack"]},
+        {"id": "rimeheart-drop", "source": "written", "tags": ["item"], "question": "where does the rimeheart ring drop in aldervast",
+         "found": ["wiki/uniques.html#unique-u_rimeheart"], "answer": ["Rime Colossus"]}
     ]
 }

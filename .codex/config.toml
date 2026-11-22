@@ -1,0 +1,3 @@
+[mcp_servers.aldervast]
+command = "php"
+args = ['C:\Users\chris\workspace\aldervast-mcp\mcp-server.php']

@@ -8,11 +8,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Checks that the four parts of src/ depend on each other in one direction only:
+ * Checks that the five parts of src/ depend on each other in one direction only:
  *
  *   Tools  <-  Mcp      the MCP server uses the tools
  *   Tools  <-  Agent    the agent loop (agent.php and the eval) uses the tools
  *   Agent  <-  Eval     the eval uses the agent loop
+ *   Agent  <-  Web      the website's chatbot uses the agent loop
  *
  * src/Tools/ is the product that the MCP server offers, so it must work without the learning demo,
  * the server code or the eval. Without this test, that separation would erode one convenient `use`
@@ -27,6 +28,7 @@ final class ArchitectureTest extends TestCase
         'Mcp' => ['Tools'],
         'Agent' => ['Tools'],
         'Eval' => ['Agent', 'Tools'],
+        'Web' => ['Agent'],
     ];
 
     public static function parts(): array

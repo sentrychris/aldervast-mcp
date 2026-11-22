@@ -86,8 +86,20 @@ final class GetWikiEntryTool
             $location = $matches[0]['u'];
         }
 
+        $page = explode('#', $location, 2)[0];
+
+        return Json::pretty(self::fromPage(new WikiEntryParser(AldervastSite::get($page), $page), $location));
+    }
+
+    /**
+     * The entry at $location ("wiki/x.html#id") from a page that is already parsed, ready to return:
+     * name, subtitle and URL first, and long parts cut down. get_wiki_entries calls this too, with
+     * one parser for each page, because parsing a big page takes much longer than reading one entry.
+     */
+    public static function fromPage(WikiEntryParser $parser, string $location): array
+    {
         [$page, $id] = explode('#', $location, 2);
-        $entry = (new WikiEntryParser(AldervastSite::get($page), $page))->entry($id);
+        $entry = $parser->entry($id);
         if ($entry === null) {
             throw new RuntimeException("{$page} has no entry #{$id}. The wiki may have changed; use search_wiki to find it again.");
         }
@@ -95,14 +107,14 @@ final class GetWikiEntryTool
         // Put the name, subtitle and URL first, so that the JSON is easy to read from the top.
         $entry = ['name' => $entry['name'], 'sub' => $entry['sub'], 'url' => AldervastSite::url($location)] + $entry;
 
-        return Json::pretty(self::shrink($entry));
+        return self::shrink($entry);
     }
 
     /**
      * Accepts "https://aldervast.online/wiki/x.html#id", "/wiki/x.html#id" or "wiki/x.html#id",
      * and returns "wiki/x.html#id". Anything else is refused, so the tool only ever reads the wiki.
      */
-    private static function parseUrl(string $url): string
+    public static function parseUrl(string $url): string
     {
         $path = preg_replace('#^https?://(www\.)?aldervast\.online/#i', '', $url);
         $path = preg_replace('#^(\.\./|/)+#', '', $path);

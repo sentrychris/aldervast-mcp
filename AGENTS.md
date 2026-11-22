@@ -25,9 +25,10 @@ is paused; this project only *reads* public game data.
 
 ## Layout
 
-`src/` has four parts, one folder and one namespace each. They depend on each other in one direction
-only, and `tests/ArchitectureTest.php` enforces it: `Tools <- Mcp`, `Tools <- Agent <- Eval`. Keep
-`src/Tools/` free of anything from the other three: it is the product that the MCP server offers.
+`src/` has five parts, one folder and one namespace each. They depend on each other in one direction
+only, and `tests/ArchitectureTest.php` enforces it: `Tools <- Mcp`, `Tools <- Agent <- Eval`,
+`Agent <- Web`. Keep `src/Tools/` free of anything from the others: it is the product that the MCP
+server offers.
 
 ```
 src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.php and the eval
@@ -35,6 +36,7 @@ src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.ph
   ServerTool.php      the list_servers tool: definition() + run()
   SearchWikiTool.php  the search_wiki tool: scores wiki/search.json entries against a query
   GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
+  GetWikiEntriesTool.php  the get_wiki_entries tool: up to 10 URLs in one call, each page parsed once; failed URLs under "errors"
   ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
   LevellingRouteTool.php  the levelling_route tool: regions, dungeons and quests that suit a level, from the Level facts
   LatestReleaseTool.php  the latest_release tool: the first release in changelog.html's list (version, date, notes)
@@ -43,6 +45,9 @@ src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.ph
   AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
   Json.php            Json::pretty(): the JSON layout of every tool's output
 src/Mcp/            Aldervast\Mcp: the MCP server's own code
+  Server.php          handle(): one JSON-RPC message -> its reply (null for a notification); stdio and HTTP both use it
+  ProtocolError.php   thrown inside Server for a JSON-RPC error reply (code, message, optional data)
+  HttpTransport.php   MCP Streamable HTTP (2025-11-25), no sessions: POST only, 202 for notifications, Origin check
   ToolCallLog.php     writes one JSON line per tool call to logs/tool-calls.jsonl (gitignored)
   WikiPages.php       MCP resources: one per wiki page in search.json, aldervast://wiki/<page>.html, read as Markdown
   Prompts.php         MCP prompts: plan_build and plan_levelling; their text is for the model
@@ -52,14 +57,22 @@ src/Agent/          Aldervast\Agent: the agent loop (Messages API over Guzzle); 
   Env.php             Env::load() reads .env; Env::get() prefers real environment variables
 src/Eval/           Aldervast\Eval: the eval's grading
   EvalScore.php       scores per run, the summary with 95% intervals, cost
-mcp-server.php      stdio MCP server: initialize, tools/list, tools/call, ping (stays at the root:
-                    .mcp.json and Claude Desktop's config point here)
+src/Web/            Aldervast\Web: the website's chatbot (PAID API on the server's key)
+  Chat.php            one visitor question -> AgentLoop -> {answer, tools} or {error}
+  RateLimit.php       per-IP-per-hour and per-day limits, in one JSON file, IPs hashed
+mcp-server.php      stdio loop around Mcp\Server (stays at the root: .mcp.json, Codex and Claude
+                    Desktop's config point here)
+public/             the website at https://aldervast.versyxdigital.net: index.php (router: /, /chat, /mcp),
+                    chat.html (the chatbot page), widget.js (chat button for other sites, e.g. aldervast.online)
+Dockerfile, docker/apache.conf, docker-compose.yml   the website's container (PHP 8.4 + Apache, 127.0.0.1:8090)
+deploy/             deploy.sh (copy code + rebuild, no sudo), setup-host.sh (host Apache site + certbot, Chris runs with sudo),
+                    aldervast-site.conf (the host's Apache site)
 show-log.php        prints the tool call log, grouped by session ("composer log")
 agent.php           runs AgentLoop on one question and prints every step (the learning demo)
 evals/cases.json    the eval's 28 questions and expected answers
 evals/run.php       runs the eval (PAID API); results in .claude/hillclimb/wiki-questions/<variant>/
 evals/build-report-lite.mjs  builds report.html from those results ("composer eval:report"); copied from the claude-api skill
-tests/              PHPUnit, namespace Aldervast\Tests, in the same four folders as src/; offline tests on
+tests/              PHPUnit, namespace Aldervast\Tests, in the same five folders as src/; offline tests on
                     tests/fixtures/ (saved wiki pages), plus a "live" group
 phpunit.xml         excludes the live group by default; <source> sets what code coverage measures (src/)
 tests/check-coverage.php  fails "composer test:coverage" if any tool has under 80% line coverage
@@ -88,6 +101,7 @@ composer log                      # the MCP server's recent tool calls, grouped 
 php agent.php "your question"     # needs ANTHROPIC_API_KEY in .env, and costs a little money
 composer eval                     # the eval: 28 questions x 2 runs through AgentLoop. PAID; ask Chris first
 composer eval:report              # rebuilds .claude/hillclimb/wiki-questions/report.html from the results (free)
+bash deploy/deploy.sh             # (Git Bash) copy the website's code to versyxdigital.net and rebuild its container
 
 # Test the MCP server by hand, with no API key and no cost:
 '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | php mcp-server.php
@@ -226,9 +240,13 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
 5. ~~`latest_release()`~~: done (`src/Tools/LatestReleaseTool.php`). Returns the first item of the page's
    `<ol class="timeline">` (newest first), using the page's default cache age of an hour.
 6. ~~MCP **resources** for whole pages, and **prompts**~~: done (`src/Mcp/WikiPages.php`,
-   `src/Mcp/Prompts.php`). Possible next steps: a resource template (`resources/templates/list`) for
-   one entry, since some whole pages are 40,000 to 70,000 tokens; prompt argument completion
-   (`completion/complete`), e.g. offering the class names.
+   `src/Mcp/Prompts.php`). Possible next step: a resource template (`resources/templates/list`) for
+   one entry, since some whole pages are 40,000 to 70,000 tokens. Don't add prompt argument
+   completion (`completion/complete` with `ref/prompt`): no Claude client sends it. Claude Code
+   (checked in 2.1.330) only asks for completion of resource template URIs.
+7. ~~`get_wiki_entries(urls)`~~: done (`src/Tools/GetWikiEntriesTool.php`). Planning one build took
+   about 30 `get_wiki_entry` calls; this returns up to 10 entries per call, each as `get_wiki_entry`
+   returns it (`GetWikiEntryTool::fromPage()`).
 
 **Hard; don't start without asking:** a live `server_status` tool. The status query runs over ENet (a
 UDP protocol) plus Godot's RPC encoding, which PHP can't speak without reimplementing both. A simpler
@@ -242,8 +260,8 @@ publishes one. That would be game work, which is paused.
 - **Use standard industry terms** (tool, tool call, MCP server, client, cache, endpoint) and plain
   English. Don't invent jargon or cute names for ordinary things.
 - **Tools are read-only by default.** Anything that writes, changes a server or uses an admin command must
-  be clearly marked, sit behind an explicit confirmation step, and never be on by default. Today nothing
-  in this project writes anywhere.
+  be clearly marked, sit behind an explicit confirmation step, and never be on by default. Today no tool
+  writes anywhere. (The website writes only its own cache and the chatbot's counts.)
 - **Never commit or print secrets.** `.env` is gitignored, and `.env.example` holds only a placeholder.
   Don't read or echo `.env` contents.
 - **The tool call log stays local.** `logs/tool-calls.jsonl` holds what Claude searched for. Don't
@@ -257,6 +275,13 @@ publishes one. That would be game work, which is paused.
 - **Never pass `--approve-harness` to `evals/run.php` on your own.** Approving the runner, agent loop
   and grader is Chris's decision, after he has read the change. To test the runner itself, point
   `ALDERVAST_EVAL_DIR` at a temporary folder and `ANTHROPIC_BASE_URL` at a fake local API.
+- **The website's chatbot spends money.** Every `/chat` answer is paid for with the API key in the
+  server's `~/aldervast-mcp/.env`. Don't send test questions to the live `/chat` without asking; test
+  `Chat` with Guzzle's MockHandler (`ChatTest`). Don't raise the limits in `RateLimit` or the
+  `ALDERVAST_CHAT_*` settings without asking, and never copy `.env` to the server: Chris puts the key there.
+- **The server is shared.** versyxdigital.net also runs the game server (`aldervast.service`, UDP 24650)
+  and other sites. Deploy only with `deploy/deploy.sh`, which touches only `~/aldervast-mcp` and its
+  container. Changes to the host's Apache or anything else that needs `sudo` are Chris's to run.
 - **Don't change `evals/cases.json` to make the score go up.** Add or fix a case only when its
   question or expected answer is wrong or missing, check the answer against the wiki, and say so.
 

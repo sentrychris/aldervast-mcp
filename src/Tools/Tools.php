@@ -36,6 +36,7 @@ final class Tools
         ServerTool::class,
         SearchWikiTool::class,
         GetWikiEntryTool::class,
+        GetWikiEntriesTool::class,
         ListCategoryTool::class,
         LevellingRouteTool::class,
         LatestReleaseTool::class,

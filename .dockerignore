@@ -1,0 +1,12 @@
+# Only src/, public/, docker/ and the Composer files go into the image. Never secrets or local data.
+.env
+.git
+.claude
+.codex
+vendor
+cache
+logs
+tests
+evals
+docs
+.phpunit.cache

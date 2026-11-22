@@ -1,0 +1,18 @@
+# Runs the website on the server: docker compose up -d --build
+# Only the host's own Apache can reach it (127.0.0.1); Apache adds HTTPS and the domain name.
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:80"
+    # Settings, including ANTHROPIC_API_KEY for the chatbot, go in .env next to this file on the
+    # server. Without the key, the MCP endpoint still works and the chatbot says it isn't set up.
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # Keeps the cached wiki pages and the chatbot's counts when the container is rebuilt.
+      - cache:/app/cache
+volumes:
+  cache:

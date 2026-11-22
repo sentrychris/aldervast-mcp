@@ -5,7 +5,7 @@ Claude together with a set of tools, and prints every step of the conversation, 
 exactly what is sent and received. The same tools also run as an MCP server, so that apps such as
 Claude Desktop can use them.
 
-The code in `src/` is in four parts, one folder and one PHP namespace each:
+The code in `src/` is in five parts, one folder and one PHP namespace each:
 
 ```
 src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offers
@@ -13,6 +13,7 @@ src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offer
   ServerTool.php         the list_servers tool: its definition, and the PHP that runs it
   SearchWikiTool.php     the search_wiki tool: searches the game wiki's index
   GetWikiEntryTool.php   the get_wiki_entry tool: returns one full wiki entry as JSON
+  GetWikiEntriesTool.php the get_wiki_entries tool: up to ten entries in one call
   ListCategoryTool.php   the list_category tool: lists every entry in one category, in pages
   LevellingRouteTool.php the levelling_route tool: the regions, dungeons and quests that suit a level
   LatestReleaseTool.php  the latest_release tool: the newest version and its notes, from the changelog
@@ -21,6 +22,9 @@ src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offer
   AldervastSite.php      downloads files from aldervast.online, and keeps copies in cache/ for an hour
   Json.php               prints JSON in a readable layout
 src/Mcp/       Aldervast\Mcp     the MCP server's own code
+  Server.php             answers one JSON-RPC message (initialize, tools/call, ...); both transports use it
+  ProtocolError.php      a request that gets a JSON-RPC error, such as an unknown method
+  HttpTransport.php      MCP over HTTP, for a server on the internet (custom connectors)
   ToolCallLog.php        writes every tool call that the server runs to logs/tool-calls.jsonl
   WikiPages.php          the MCP resources: each wiki page as Markdown, for a person to attach to a chat
   Prompts.php            the MCP prompts: ready-made requests such as "plan my build"
@@ -30,20 +34,26 @@ src/Agent/     Aldervast\Agent   the agent loop, which talks to the Messages API
   Env.php                reads settings such as the API key from .env
 src/Eval/      Aldervast\Eval    the eval
   EvalScore.php          the eval's grading
+src/Web/       Aldervast\Web     the website's chatbot
+  Chat.php               answers one visitor's question with the agent loop
+  RateLimit.php          limits questions per visitor and per day, because each answer costs money
 
-mcp-server.php           the MCP server (step 2 below); uses src/Tools and src/Mcp
+mcp-server.php           the MCP server over stdio (step 2 below); uses src/Mcp
 show-log.php             prints the tool call log as a readable list ("composer log")
 agent.php                runs the agent loop on one question and prints every step; uses src/Agent
+public/                  the website (step 3 below): index.php, the chatbot page, the chat widget
+Dockerfile, docker/, docker-compose.yml, deploy/   how the website runs on a server (step 3)
 evals/                   the eval's questions, and the script that runs them (see "The eval")
-tests/                   PHPUnit tests, in the same four folders (see "Tests")
+tests/                   PHPUnit tests, in the same five folders (see "Tests")
 ```
 
 The parts depend on each other in one direction only. The MCP server and the agent loop each use
-the tools, the eval uses the agent loop, and the tools use none of the others:
+the tools, the eval and the chatbot use the agent loop, and the tools use none of the others:
 
 ```
 Tools  <-  Mcp
 Tools  <-  Agent  <-  Eval
+           Agent  <-  Web
 ```
 
 So `src/Tools/` is the whole MCP product, with no learning or measuring code mixed in.
@@ -56,6 +66,7 @@ So `src/Tools/` is the whole MCP product, with no learning or measuring code mix
 | `list_servers` | none | The public game servers: name, address, port, note. |
 | `search_wiki` | `query`, optional `category` and `limit` (default 10, max 25) | The best-matching wiki entries: name, category, short summary, URL. |
 | `get_wiki_entry` | `url_or_name`, optional `category` | One full entry: description, facts, sections, and links to the entries it mentions. |
+| `get_wiki_entries` | `urls` (1 to 10 wiki URLs) | The same as `get_wiki_entry` for each URL, in one call, with any URL that failed listed under `errors`. |
 | `list_category` | optional `category`, `offset`, `limit` (default 50, max 100) | Every entry in a category: name, summary, URL. With no category, the categories and their sizes. |
 | `levelling_route` | `level` (1 to 60) | The regions, dungeons and quests that suit that level, with levels, quest givers, the quest that must come first, the quest that leads into each dungeon, when a dungeon is only open at certain times, the main-story chapter of each main-story quest, the boss of a world boss quest, and URLs. |
 | `latest_release` | none | The newest version of the game: its version number, release date and release notes, from the changelog page. |
@@ -187,6 +198,28 @@ chapters) are about 9 KB.
 
 Downloaded files are kept in `cache/` (which git ignores) for an hour, because the website only
 changes when a new version of the game is released. Delete `cache/` to download everything again.
+
+### Several entries in one call: get_wiki_entries
+
+Some questions need many entries. To plan a build, Claude read every option that it might
+recommend: skills, support runes, passives and items. That was about 30 `get_wiki_entry` calls, and
+each call is a round trip: Claude asks for the tool, the client runs it, and the result goes back
+to Claude before it can ask for the next one. `get_wiki_entries` takes up to ten URLs and returns
+all the entries in one result, each exactly as `get_wiki_entry` returns it.
+
+- **URLs only, no names.** A name can match several entries, and then `get_wiki_entry` returns a
+  list to choose from. Ten of those lists in one result would be hard to read.
+- **One bad URL doesn't fail the call.** It goes under `errors` with the reason, and the other
+  entries still come back. Claude can usually answer with those, and retry the one that failed.
+- **At most ten.** A typical entry is 1 to 3 KB, so ten fill 10 to 30 KB of the model's context
+  window. URLs after the tenth go under `not_fetched`, with a message to call again with them.
+- **Each page is parsed once per call.** Ten skills from one page means one parse, not ten,
+  because parsing a big page (`quests.html` is about 600 KB) takes much longer than reading one
+  entry from it. The parsed pages last for one call only, so the cache still decides when a page
+  is too old.
+- **There is no "facts only" option.** It would make the result smaller, but in the build example
+  the details that mattered were often outside the facts: a passive's notables are in `sections`,
+  and a support rune's effect is in `text`.
 
 ## Prerequisites
 
@@ -356,6 +389,15 @@ Crypt?" or "how do I beat the Hollow Crypt's boss?". It will ask permission to u
 first time, call your PHP, and answer. Expand a tool call in the chat to see the exact input and
 output. Remove it with `claude mcp remove aldervast`.
 
+### Adding the server to Codex
+
+This project's `.codex/config.toml` registers the same PHP server with Codex. Open this folder
+as a trusted project, then start a new Codex session so that the tools are loaded. PHP must be
+on the PATH. No Anthropic API key is needed.
+
+The configuration uses Chris's absolute path, as `.mcp.json` does. If you clone the project
+elsewhere, change the path in `.codex/config.toml` to your copy of `mcp-server.php`.
+
 ### Resources and prompts
 
 Tools are one of three things that an MCP server can offer. The other two are **resources** and
@@ -363,7 +405,7 @@ Tools are one of three things that an MCP server can offer. The other two are **
 
 | | Who decides | What this server offers |
 |---|---|---|
-| Tool | The model, during a chat | The six tools above |
+| Tool | The model, during a chat | The seven tools above |
 | Resource | The person, who attaches it to a chat | Each wiki page, whole, as Markdown |
 | Prompt | The person, who picks it like a command | `plan_build` and `plan_levelling` |
 
@@ -418,8 +460,111 @@ Try them by hand:
 '{"jsonrpc":"2.0","id":1,"method":"resources/list"}' | php mcp-server.php
 '{"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":"aldervast://wiki/classes.html"}}' | php mcp-server.php
 '{"jsonrpc":"2.0","id":3,"method":"prompts/list"}' | php mcp-server.php
-'{"jsonrpc":"2.0","id":4,"method":"prompts/get","params":{"name":"plan_build","arguments":{"class":"Warden","level":"25"}}}' | php mcp-server.php
+'{"jsonrpc":"2.0","id":4,"method":"prompts/get","params":{"name":"plan_build","arguments":{"class":"Warden","level":"25"}}}' | php mcp-server.php```
+
+## Step 3: offering the server to other people
+
+The stdio server only works on the PC that runs it. To let other people use the tools, the same
+code also runs as a website, at **https://aldervast.versyxdigital.net**. It offers three things:
+
+| Address | What it is | Who it's for |
+|---|---|---|
+| `/mcp` | The MCP server over HTTP | People with Claude Desktop or claude.ai: they add it as a custom connector |
+| `/` and `/chat` | A chatbot page, and the endpoint that answers its questions | Anyone with a browser |
+| `/widget.js` | A chat button for other websites, such as aldervast.online | Visitors to those sites |
+
+### The MCP server over HTTP (custom connectors)
+
+In claude.ai or Claude Desktop, add `https://aldervast.versyxdigital.net/mcp` as a custom connector,
+with no sign-in. Anthropic's guide shows where:
+https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp.
+Every plan can add one (the Free plan only one). The person installs nothing, and
+gets the same tools, resources and prompts as Claude Code gets locally. Anthropic's servers make the
+connection, not the person's PC, so the address must be public and use HTTPS on port 443.
+
+MCP calls this transport **Streamable HTTP**. Each JSON-RPC message is the body of a POST request,
+and the reply is the response body. `src/Mcp/HttpTransport.php` does the HTTP part, and
+`src/Mcp/Server.php` does the MCP part, the same `Server` that `mcp-server.php` uses over stdio.
+Things to know:
+
+- **No sessions.** The spec allows a server to skip them. Nothing is kept between requests, so any
+  request can go to any PHP process.
+- **GET gets 405.** GET is for a stream of messages from the server, and this server never sends any.
+- **Origin is checked.** A request from a web page whose Origin isn't in `ALDERVAST_ALLOWED_ORIGINS`
+  gets 403, so that a page in someone's browser can't use the server behind their back.
+- **The tool call log is off** on the server, because it would hold strangers' questions.
+
+Try it on the server (or through the public address):
+
+```bash
+curl -s https://aldervast.versyxdigital.net/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_servers","arguments":{}}}'
 ```
+
+### The chatbot
+
+The chatbot doesn't use MCP. MCP is for apps that run their own agent loop. On the website, the
+website is the app: `src/Web/Chat.php` runs a visitor's question through `AgentLoop`, as `agent.php`
+does, and returns the answer as JSON. **Every answer costs money on the API key in the server's
+`.env`**, so:
+
+- each visitor can ask 10 questions an hour, and everyone together 100 a day (settings below);
+- a question can be at most 500 characters;
+- each question is answered on its own, with no memory of the earlier ones, which keeps each
+  request small;
+- nothing about the visitor is stored. The counts are kept with hashed IP addresses and forgotten
+  after an hour.
+
+Without `ANTHROPIC_API_KEY`, the chatbot replies that it isn't set up, and `/mcp` still works.
+
+### The chat widget
+
+`public/widget.js` adds a round chat button to the bottom right of any page, which opens a small
+chat panel. It talks to `/chat` on the server that it was loaded from. To add it to a page:
+
+```html
+<script src="https://aldervast.versyxdigital.net/widget.js" defer></script>
+```
+
+The widget is built inside a Shadow DOM (a part of the page that has its own CSS), so the site's
+styles and the widget's styles can't affect each other. Because the page is on another domain, the
+browser only lets it read the answers if the server allows that page's origin. The rules for this
+are called **CORS**. The page's origin must be in `ALDERVAST_CHAT_ORIGINS`.
+
+### Settings
+
+All settings are environment variables, in `~/aldervast-mcp/.env` on the server. That file never
+leaves the server: `deploy/deploy.sh` doesn't send this PC's `.env`, and doesn't overwrite the server's.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | none | The key that pays for the chatbot's answers. Without it, the chatbot is off |
+| `ALDERVAST_CHAT_PER_HOUR` | `10` | Questions per visitor (IP address) in any 60 minutes |
+| `ALDERVAST_CHAT_PER_DAY` | `100` | Questions per day (UTC) from everyone together |
+| `ALDERVAST_CHAT_ORIGINS` | `https://aldervast.online` | Sites that may use the widget, separated by commas |
+| `ALDERVAST_ALLOWED_ORIGINS` | `https://claude.ai,https://claude.com` | Browser origins that may call `/mcp` |
+| `ALDERVAST_TOOL_LOG` | off | A file path inside the container turns the tool call log on |
+
+After changing `.env`, run `docker compose up -d` in `~/aldervast-mcp` on the server.
+
+### How it runs on the server
+
+```
+visitor or Anthropic --HTTPS--> host Apache (aldervast.versyxdigital.net, Let's Encrypt)
+                                   --HTTP--> Docker container on 127.0.0.1:8090
+                                                Apache + PHP 8.4 -> public/index.php
+```
+
+- **The container** (`Dockerfile`, `docker-compose.yml`) brings its own PHP, so the server needs
+  only Docker. Its port is open on `127.0.0.1` only, so the outside world reaches it through the
+  host's Apache. Cached wiki pages and the chatbot's counts are kept in a Docker volume.
+- **The host's Apache site** (`deploy/aldervast-site.conf`) passes every request to the container,
+  and adds HTTPS. `deploy/setup-host.sh` installs it once; it needs `sudo`, so a person runs it.
+- **Updating the code:** run `bash deploy/deploy.sh` in Git Bash on this PC. It copies only the
+  files that the image needs to `~/aldervast-mcp` on the server, then rebuilds and restarts the
+  container. No `sudo` is needed, only membership of the `docker` group.
+- The same server runs the game server and other sites. Nothing here touches them: the container
+  uses its own port, and the Apache site only answers for its own domain.
 
 ## Tests
 
@@ -447,6 +592,7 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `WikiEntryParserTest` | Turning a page's HTML into an array: facts, sections, links, table rows, facts inside layout `<div>`s, and refusing unsafe ids |
 | `SearchWikiToolTest` | How results are ranked, the category filter, the result limit, the " …" on cut summaries, and HTML codes such as `&#x2019;` |
 | `GetWikiEntryToolTest` | Different ways of writing a URL, names that several entries share, suggestions for near misses, refusing other websites, and shortening long output |
+| `GetWikiEntriesToolTest` | Several entries in one call: each the same as from `get_wiki_entry`, in the order asked for, a repeated URL fetched once, failed URLs listed with their reasons next to the entries that worked, the limit of ten, and refusing input that isn't a list |
 | `ListCategoryToolTest` | The list of categories and their sizes, pages of results for big categories, category labels, and cut summaries |
 | `LevellingRouteToolTest` | Which regions, dungeons and quests suit a level: both ends of a region's range, dungeons 2 levels away and not 3, a dungeon that scales, the quest that leads into a dungeon, when a dungeon is open, main-story chapters (and a side quest that a chapter guide links to, which stays unmarked), world boss quests, the 20-quest cut, the note when no region fits, and refused levels |
 | `LatestReleaseToolTest` | The newest release: its version, date, whole notes without HTML codes, notes over several lines, a release without a date, and an error when the page has no list of releases or a release has no version |
@@ -456,11 +602,15 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `AldervastSiteTest` | Building URLs and file names, and reading saved copies: with or without a leading slash or a part after "#", and an error (not a download) when a saved copy is missing |
 | `WikiPagesTest` | The resources: one per page in the search index, in alphabetical order, their URIs and descriptions, each entry's parts in the Markdown, table rows, a page with one bare entry, and refusing any URI that isn't listed |
 | `PromptsTest` | The prompts: their arguments, each prompt's exact text, optional arguments left out when blank, levels 1 and 60 allowed, and errors for an unknown prompt, a missing argument or a bad level |
+| `ServerTest` | The MCP requests, answered in this process: version agreement in `initialize`, the tool list, tool calls and failed tools (and that both are logged), resources, prompts, and the spec's error codes |
+| `HttpTransportTest` | MCP over HTTP: replies as JSON, 202 for notifications, 405 for GET, 403 for a bad Origin, 400 for an unknown protocol version, bad JSON or a batch, and 413 for a body over the limit |
+| `ChatTest` | The chatbot, against recorded API responses: the answer and the tools used, no API key, missing or too long questions (refused before anything is paid for), the rate limit, and API failures |
+| `RateLimitTest` | The chatbot's limits: per visitor per hour, per day for everyone, a new day, refused questions not counted, and no IP address in the file |
 | `ToolCallLogTest` | The tool call log: one JSON line per call with every field, lines added to the end, errors kept but shortened, broken text still logged, and a file that can't be written doesn't stop the call |
 | `AgentLoopTest` | The agent loop, against recorded API responses (no paid calls): tool calls and results, the history sent back, retries and their waits, time limits, a different model answering, refusals, the five-turn limit |
 | `EvalScoreTest` | The eval's grading: a right run passes, "I don't know" fails everything, a right answer from memory doesn't pass, confidence intervals, cost |
 | `JsonTest`, `EnvTest` | `Json::pretty()`, and `Env::load()` / `Env::get()` (a real environment variable wins over `.env`) |
-| `ArchitectureTest` | That `src/Tools/`, `src/Mcp/`, `src/Agent/` and `src/Eval/` use only the parts they are allowed to (see the diagram at the top) |
+| `ArchitectureTest` | That `src/Tools/`, `src/Mcp/`, `src/Agent/`, `src/Eval/` and `src/Web/` use only the parts they are allowed to (see the diagram at the top) |
 | `EveryToolHasTestsTest` | That every tool in `src/Tools/Tools.php` has its own test class, with at least three tests that call the tool's `run()`. If someone adds a tool without tests, this test fails and says which file to create |
 | `McpServerTest` | The MCP protocol. It starts `mcp-server.php` as a separate process, as Claude Desktop does. Then it checks that the server writes only JSON-RPC to its output, doesn't reply to notifications, sends correct schemas, reports tool failures with `isError`, declares resources and prompts, and sends the spec's error codes for an unknown resource or prompt |
 

@@ -16,12 +16,20 @@ use Aldervast\Agent\AgentLoopError;
  * AgentLoop, just as agent.php does. Every answer costs money on the site owner's API key, which is
  * why RateLimit exists and why questions are kept short.
  *
- * Each question is answered on its own, with no memory of earlier ones. That keeps every request
- * small and cheap, and nothing about a visitor is kept on the server.
+ * The server keeps no conversation. The page sends the last few messages along with each new
+ * question ("history"), so that a follow-up such as "please do" makes sense, and nothing about a
+ * visitor is stored here. history() trims what the page sends, because the visitor's browser can send
+ * anything, and every message sent again is paid for again.
  */
 final class Chat
 {
     public const MAX_QUESTION_CHARS = 500;
+
+    /** At most this many earlier messages go with a question: the last 3 questions and their answers. */
+    public const MAX_HISTORY_MESSAGES = 6;
+
+    /** A longer earlier message is cut to this many characters, with " …" at the end. */
+    public const MAX_HISTORY_CHARS = 1500;
 
     /**
      * Added to the agent loop's system prompt for the chatbot only (public/index.php passes it to
@@ -53,7 +61,8 @@ final class Chat
     }
 
     /**
-     * The response to one POST /chat request, whose body is {"question": "..."}.
+     * The response to one POST /chat request, whose body is {"question": "...", "history": [...]}.
+     * history is optional: earlier messages, oldest first, each {"role": "user" or "assistant", "content": "..."}.
      *
      * @return array{status: int, body: array} body is {"answer", "tools"} or {"error"}
      */
@@ -78,7 +87,7 @@ final class Chat
         }
 
         try {
-            $result = $this->loop->run($question, $this->timeLimit);
+            $result = $this->loop->run($question, $this->timeLimit, self::history($request['history'] ?? null));
         } catch (AgentLoopError $e) {
             // The details go to the server's log, not to the visitor. Tokens spent before the error
             // are still paid for, so they are recorded.
@@ -107,6 +116,41 @@ final class Chat
             // Which tools were used, in order, so the page can show where the answer came from.
             'tools' => array_column($result['calls'], 'tool'),
         ]];
+    }
+
+    /**
+     * The earlier messages that the page sent, made safe to pass to the Messages API, which needs
+     * them to take turns: user, assistant, user, assistant. Anything that isn't a message with a known
+     * role and some text is dropped; so is a message whose role is out of turn, and a last user
+     * message with no answer. Then only the last MAX_HISTORY_MESSAGES are kept, each cut to
+     * MAX_HISTORY_CHARS. Anything else in the history (it's in the visitor's control) is ignored.
+     */
+    public static function history(mixed $history): array
+    {
+        if (!is_array($history)) {
+            return [];
+        }
+        $messages = [];
+        $expected = 'user';
+        foreach ($history as $message) {
+            $role = is_array($message) ? ($message['role'] ?? null) : null;
+            $content = is_array($message) && is_string($message['content'] ?? null) ? trim($message['content']) : '';
+            if ($role !== $expected || $content === '') {
+                continue;
+            }
+            if (mb_strlen($content) > self::MAX_HISTORY_CHARS) {
+                $content = mb_substr($content, 0, self::MAX_HISTORY_CHARS) . ' …';
+            }
+            $messages[] = ['role' => $role, 'content' => $content];
+            $expected = $expected === 'user' ? 'assistant' : 'user';
+        }
+        // The question itself is the next user message, so the history must end with an answer.
+        if ($expected === 'assistant') {
+            array_pop($messages);
+        }
+
+        // An even number from the end keeps the user, assistant order.
+        return array_slice($messages, -self::MAX_HISTORY_MESSAGES);
     }
 
     private static function error(int $status, string $message): array

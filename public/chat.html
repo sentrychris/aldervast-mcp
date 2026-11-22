@@ -64,7 +64,7 @@
       placeholder="e.g. Who is the boss of the Hollow Crypt?"></textarea>
     <button type="submit" id="send">Ask</button>
   </form>
-  <p class="hint">Each question is answered on its own, so include everything it needs. An answer takes 10 to 40 seconds.</p>
+  <p class="hint">It remembers your last few questions until you leave the page, so you can follow up. An answer takes 10 to 40 seconds.</p>
 
   <section id="answers" aria-live="polite"></section>
 
@@ -82,6 +82,9 @@
   const input = document.getElementById('question');
   const button = document.getElementById('send');
   const answers = document.getElementById('answers');
+  // The conversation so far, so that a follow-up makes sense. It lives only in this page; the
+  // server keeps nothing, and uses at most the last 6 messages.
+  const history = [];
 
   // The answer is Markdown. marked turns it into HTML, and DOMPurify removes anything unsafe
   // from that HTML before it goes into the page.
@@ -114,7 +117,7 @@
       const response = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, history: history.slice(-6) }),
       });
       const data = await response.json().catch(() => ({ error: 'The server sent an unreadable reply.' }));
       answer.classList.remove('thinking');
@@ -124,6 +127,7 @@
         return;
       }
       answer.innerHTML = render(data.answer);
+      history.push({ role: 'user', content: question }, { role: 'assistant', content: data.answer });
       answer.querySelectorAll('a').forEach((link) => { link.target = '_blank'; link.rel = 'noopener'; });
       if (data.tools.length) {
         const tools = document.createElement('p');

@@ -97,7 +97,7 @@
           <textarea maxlength="${MAX_CHARS}" placeholder="Ask a question…" aria-label="Your question"></textarea>
           <button class="send" type="submit">Send</button>
         </form>
-        <p class="note">Written by Claude, an AI, and it can be wrong. Each question is answered on its own.</p>
+        <p class="note">Written by Claude, an AI, and it can be wrong. It remembers your last few messages until you leave the page.</p>
       </section>
       <button class="launcher" type="button" aria-label="Open the Aldervast chat" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -113,6 +113,10 @@
   const input = root.querySelector('textarea');
   const send = root.querySelector('.send');
   let greeted = false;
+  // The conversation so far, so that a follow-up ("please do") makes sense. It lives only in this
+  // page: the server keeps nothing, and keeps at most the last 6 messages of what it's sent.
+  const history = [];
+  const MAX_HISTORY = 6;
 
   function setOpen(open) {
     panel.hidden = !open;
@@ -198,7 +202,7 @@
       const response = await fetch(server + '/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, history: history.slice(-MAX_HISTORY) }),
       });
       const data = await response.json().catch(() => ({ error: 'The server sent an unreadable reply.' }));
       waiting.remove();
@@ -208,6 +212,8 @@
       }
       add('bot', (el) => {
         el.innerHTML = markdown(data.answer);
+        // Only a question that got an answer joins the conversation.
+        history.push({ role: 'user', content: question }, { role: 'assistant', content: data.answer });
         if (data.tools && data.tools.length) {
           const tools = document.createElement('div');
           tools.className = 'tools';

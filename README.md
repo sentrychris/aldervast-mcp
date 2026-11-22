@@ -518,8 +518,11 @@ does, and returns the answer as JSON. **Every answer costs money on the API key 
 
 - each visitor can ask 10 questions an hour, and everyone together 100 a day (settings below);
 - a question can be at most 500 characters;
-- each question is answered on its own, with no memory of the earlier ones, which keeps each
-  request small;
+- it remembers only the last 3 questions and answers, so that a follow-up such as "please do" makes
+  sense. The page keeps the conversation and sends it with each question; the server stores none
+  of it. `Chat::history()` keeps only whole exchanges in turn order, at most 6 messages, each cut to
+  1,500 characters, because the visitor's browser could send anything, and every message sent again
+  is paid for again. A follow-up costs more than a first question for that reason;
 - it only helps with Aldervast. `Chat::INSTRUCTIONS` is added to its system prompt (through
   `AgentLoop`'s `extraInstructions`). It tells Claude to look up anything that might be in the game,
   and to decline other requests, such as a real-world recipe, in a sentence or two. A declined

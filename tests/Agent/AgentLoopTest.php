@@ -149,6 +149,20 @@ final class AgentLoopTest extends FixtureTestCase
         $this->assertSame($expected, $run['transcript'][0]['content']);
     }
 
+    public function test_earlier_messages_go_before_the_question_in_the_request_and_the_transcript(): void
+    {
+        $history = [['role' => 'user', 'content' => 'best class?'], ['role' => 'assistant', 'content' => 'Try a Warden.']];
+
+        $run = $this->loop([self::reply('end_turn', [self::text('Here is a Warden build.')])])->run('please do', null, $history);
+
+        $this->assertSame([...$history, ['role' => 'user', 'content' => 'please do']], $this->body(0)['messages']);
+        $this->assertSame(
+            ['system', 'user', 'assistant', 'user', 'assistant'],
+            array_column($run['transcript'], 'role')
+        );
+        $this->assertSame('please do', $run['transcript'][3]['content']);
+    }
+
     public function test_the_transcript_lists_every_turn_in_the_report_format(): void
     {
         $run = $this->loop([

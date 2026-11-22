@@ -95,9 +95,14 @@ final class AgentLoop
      *   transcript   the conversation as a list of turns, in the format the eval report reads
      *
      * @param float|null $timeLimit seconds that the whole run may take; null for no limit
+     * @param array      $history   earlier messages of the same conversation, oldest first, each
+     *                              ['role' => 'user' or 'assistant', 'content' => text], starting with
+     *                              a user message and ending with an assistant one. They go before the
+     *                              question, so the model can follow up ("please do"). agent.php and the
+     *                              eval send none; the website's chatbot sends a few (Chat::history()).
      * @throws AgentLoopError when the run fails before the model gives an answer
      */
-    public function run(string $question, ?float $timeLimit = null): array
+    public function run(string $question, ?float $timeLimit = null, array $history = []): array
     {
         $started = hrtime(true) / 1e9; // seconds, from a clock that only moves forward
         $tools = Tools::byName();
@@ -107,14 +112,15 @@ final class AgentLoop
         // The model only ever sees the definitions (name, description, input schema), never the PHP.
         $definitions = array_map(fn (string $class) => $class::definition(), array_values($tools));
 
-        // The conversation. The API is stateless: we send the WHOLE history every time.
-        $messages = [['role' => 'user', 'content' => $question]];
+        // The conversation. The API is stateless: we send the WHOLE history every time, starting
+        // with any earlier messages of the conversation.
+        $messages = [...$history, ['role' => 'user', 'content' => $question]];
 
         $result = [
             'answer' => '', 'stop_reason' => 'max_turns', 'model' => '', 'turns' => 0, 'calls' => [],
             'usage' => ['input_tokens' => 0, 'output_tokens' => 0, 'cache_read_input_tokens' => 0, 'cache_creation_input_tokens' => 0],
             'latency_s' => 0.0, 'retries' => 0,
-            'transcript' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $question]],
+            'transcript' => [['role' => 'system', 'content' => $system], ...$messages],
         ];
 
         for ($turn = 1; $turn <= self::MAX_TURNS; $turn++) {

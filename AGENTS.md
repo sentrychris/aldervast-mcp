@@ -61,7 +61,7 @@ src/Agent/          Aldervast\Agent: the agent loop (Messages API over Guzzle); 
 src/Eval/           Aldervast\Eval: the eval's grading
   EvalScore.php       scores per run, the summary with 95% intervals, cost
 src/Web/            Aldervast\Web: the website's chatbot (PAID API on the server's key)
-  Chat.php            one visitor question -> AgentLoop -> {answer, tools} or {error}
+  Chat.php            one visitor question (+ up to 6 earlier messages from the page, Chat::history()) -> AgentLoop -> {answer, tools} or {error}
   RateLimit.php       per-IP-per-hour and per-day limits, in one JSON file, IPs hashed
   UsageLog.php        one JSON line per question in cache/chat-usage.jsonl: outcome, model, tokens. Never the question or visitor
   UsageReport.php     that log per UTC day; the cost function is passed in (prices live in Eval, which Web may not use)

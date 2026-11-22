@@ -132,6 +132,23 @@ final class AgentLoopTest extends FixtureTestCase
         $this->assertSame(4096, $body['max_tokens']);
     }
 
+    public function test_extra_instructions_come_after_the_tool_instructions_in_every_request_and_the_transcript(): void
+    {
+        $stack = HandlerStack::create(new MockHandler([
+            self::reply('tool_use', [self::toolUse('search_wiki', ['query' => 'stag'])]),
+            self::reply('end_turn', [self::text('Done.')]),
+        ]));
+        $stack->push(Middleware::history($this->sent));
+        $loop = new AgentLoop(new Client(['handler' => $stack]), extraInstructions: 'Stay on topic.');
+
+        $run = $loop->run('q');
+
+        $expected = Tools::INSTRUCTIONS . "\n\nStay on topic.";
+        $this->assertSame($expected, $this->body(0)['system']);
+        $this->assertSame($expected, $this->body(1)['system']);
+        $this->assertSame($expected, $run['transcript'][0]['content']);
+    }
+
     public function test_the_transcript_lists_every_turn_in_the_report_format(): void
     {
         $run = $this->loop([

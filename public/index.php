@@ -73,20 +73,21 @@ if ($path === '/chat') {
     if ($method === 'OPTIONS') {
         respond(204, $cors + ['Access-Control-Allow-Methods' => 'POST', 'Access-Control-Allow-Headers' => 'Content-Type', 'Access-Control-Max-Age' => '86400'], '');
     }
-}
 
-if ($path === '/chat' && $method === 'POST') {
-    // An answer can take a while: several turns, each a call to the Messages API.
-    set_time_limit(150);
-    $apiKey = Env::get('ANTHROPIC_API_KEY');
-    $loop = $apiKey === '' ? null : new AgentLoop(AgentLoop::client($apiKey));
-    $limit = new RateLimit(
-        dirname(__DIR__) . '/cache/chat-limits.json',
-        (int) Env::get('ALDERVAST_CHAT_PER_HOUR', '10'),
-        (int) Env::get('ALDERVAST_CHAT_PER_DAY', '100'),
-    );
-    $response = (new Chat($loop, $limit))->ask((string) file_get_contents('php://input'), client_ip());
-    respond($response['status'], ['Content-Type' => 'application/json'] + $cors, json_encode($response['body'], JSON_UNESCAPED_SLASHES));
+    if ($method === 'POST') {
+        // An answer can take a while: several turns, each a call to the Messages API.
+        set_time_limit(150);
+        $apiKey = Env::get('ANTHROPIC_API_KEY');
+        // Chat::INSTRUCTIONS keeps the chatbot to questions about Aldervast.
+        $loop = $apiKey === '' ? null : new AgentLoop(AgentLoop::client($apiKey), extraInstructions: Chat::INSTRUCTIONS);
+        $limit = new RateLimit(
+            dirname(__DIR__) . '/cache/chat-limits.json',
+            (int) Env::get('ALDERVAST_CHAT_PER_HOUR', '10'),
+            (int) Env::get('ALDERVAST_CHAT_PER_DAY', '100'),
+        );
+        $response = (new Chat($loop, $limit))->ask((string) file_get_contents('php://input'), client_ip());
+        respond($response['status'], ['Content-Type' => 'application/json'] + $cors, json_encode($response['body'], JSON_UNESCAPED_SLASHES));
+    }
 }
 
 if ($path === '/' && $method === 'GET') {

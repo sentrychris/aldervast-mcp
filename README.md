@@ -512,6 +512,10 @@ does, and returns the answer as JSON. **Every answer costs money on the API key 
 - a question can be at most 500 characters;
 - each question is answered on its own, with no memory of the earlier ones, which keeps each
   request small;
+- it only helps with Aldervast. `Chat::INSTRUCTIONS` is added to its system prompt (through
+  `AgentLoop`'s `extraInstructions`). It tells Claude to look up anything that might be in the game,
+  and to decline other requests, such as a real-world recipe, in a sentence or two. A declined
+  question still costs one small request. The MCP server and the eval don't get this text;
 - nothing about the visitor is stored. The counts are kept with hashed IP addresses and forgotten
   after an hour.
 

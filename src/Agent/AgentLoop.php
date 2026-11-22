@@ -52,12 +52,16 @@ final class AgentLoop
      *                                agent.php prints these, the eval doesn't need them
      * @param Closure|null    $sleep  waits a number of seconds between retries; the tests pass one
      *                                that doesn't wait
+     * @param string          $extraInstructions added after Tools::INSTRUCTIONS in the system prompt,
+     *                                for one use of the loop only; the website's chatbot uses it to stay
+     *                                on topic (Chat::INSTRUCTIONS). agent.php and the eval add nothing.
      */
     public function __construct(
         private ClientInterface $http,
         private string $model = self::MODEL,
         private ?Closure $onStep = null,
         private ?Closure $sleep = null,
+        private string $extraInstructions = '',
     ) {
     }
 
@@ -97,6 +101,9 @@ final class AgentLoop
     {
         $started = hrtime(true) / 1e9; // seconds, from a clock that only moves forward
         $tools = Tools::byName();
+        // The same guidance that the MCP server sends to Claude Desktop (see src/Tools/Tools.php),
+        // plus any instructions for this one use of the loop.
+        $system = Tools::INSTRUCTIONS . ($this->extraInstructions === '' ? '' : "\n\n" . $this->extraInstructions);
         // The model only ever sees the definitions (name, description, input schema), never the PHP.
         $definitions = array_map(fn (string $class) => $class::definition(), array_values($tools));
 
@@ -107,7 +114,7 @@ final class AgentLoop
             'answer' => '', 'stop_reason' => 'max_turns', 'model' => '', 'turns' => 0, 'calls' => [],
             'usage' => ['input_tokens' => 0, 'output_tokens' => 0, 'cache_read_input_tokens' => 0, 'cache_creation_input_tokens' => 0],
             'latency_s' => 0.0, 'retries' => 0,
-            'transcript' => [['role' => 'system', 'content' => Tools::INSTRUCTIONS], ['role' => 'user', 'content' => $question]],
+            'transcript' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $question]],
         ];
 
         for ($turn = 1; $turn <= self::MAX_TURNS; $turn++) {
@@ -116,8 +123,7 @@ final class AgentLoop
                 'max_tokens' => 4096,
                 'output_config' => ['effort' => 'low'], // Simple questions: less thinking, faster and cheaper.
                 'fallbacks' => 'default',
-                // The same guidance that the MCP server sends to Claude Desktop (see src/Tools/Tools.php).
-                'system' => Tools::INSTRUCTIONS,
+                'system' => $system,
                 'tools' => $definitions,
                 'messages' => $messages,
                 // Prompt caching: the API keeps the start of this request (tools, system, history) for a

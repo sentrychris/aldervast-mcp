@@ -36,45 +36,42 @@ final class FindSkillsTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Lists Aldervast skill glyphs that match all the given filters, lowest level first, '
-                . 'with each skill\'s type, level, tags, what it needs in hand (only when the wiki names '
-                . 'something; otherwise the wiki lists no requirement), damage, cooldown, mana, short '
-                . 'description and wiki URL. Use it to find the skills that suit a build: e.g. by tag, by '
-                . 'weapon (needs) or up to a character level. With supports_for, it instead lists the support '
-                . 'runes that fit one skill, with their effects. An unknown type, tag or needs value returns '
-                . 'an error that lists the valid ones.',
+            'description' => 'Lists the skill glyphs that match every given filter, lowest level first: type, '
+                . 'level, tags, what they need in hand (only when the wiki names something), damage, cooldown, '
+                . 'mana, description and URL. Use it to find skills for a build, e.g. by tag, weapon (needs) or '
+                . 'level. With supports_for, it lists the support runes that fit one skill instead. An unknown '
+                . 'value returns the valid ones.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
                     'type' => [
                         'type' => 'string',
-                        'description' => 'A skill type, such as "Projectile", "Melee" or "Trap". Case-insensitive.',
+                        'description' => 'A skill type. Case-insensitive.',
                     ],
                     'tag' => [
                         'type' => 'string',
-                        'description' => 'A skill tag, such as "Fire", "Spell" or "Area". Case-insensitive.',
+                        'description' => 'A skill tag. Case-insensitive.',
                     ],
                     'needs' => [
                         'type' => 'string',
-                        'description' => 'A word from what a skill needs in hand, such as "shield". Only skills '
-                            . 'that need it are listed.',
+                        'description' => 'A word from what a skill needs in hand; only skills that need it are listed.',
                     ],
                     'max_level' => [
                         'type' => 'integer',
                         'minimum' => 1,
                         'maximum' => LevellingRouteTool::MAX_LEVEL,
-                        'description' => 'Only skills (or runes) whose level is at most this, e.g. the character\'s level.',
+                        'description' => 'Only skills (or runes) up to this level, e.g. the character\'s level.',
                     ],
                     'min_level' => [
                         'type' => 'integer',
                         'minimum' => 1,
                         'maximum' => LevellingRouteTool::MAX_LEVEL,
-                        'description' => 'Only skills (or runes) whose level is at least this.',
+                        'description' => 'Only skills (or runes) from this level up.',
                     ],
                     'supports_for' => [
                         'type' => 'string',
-                        'description' => 'The exact name of one skill. Lists the support runes that fit it '
-                            . 'instead of skills; the other filters except the levels are ignored.',
+                        'description' => 'A skill\'s exact name: list the runes that fit it instead. Other '
+                            . 'filters except the levels are ignored.',
                     ],
                     'limit' => [
                         'type' => 'integer',

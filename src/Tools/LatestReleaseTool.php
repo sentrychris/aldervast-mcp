@@ -33,10 +33,8 @@ final class LatestReleaseTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Returns the newest released version of Aldervast: its version number, release '
-                . 'date and release notes, from the game\'s release history (the changelog). Use it when a '
-                . 'player asks which version is current, when the game was last updated, or what the '
-                . 'latest update added or changed.',
+            'description' => 'Returns the newest Aldervast release: version, date and notes, from the changelog. '
+                . 'Use it for the current version, when the game was last updated, or what the update changed.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => (object) [],

@@ -22,7 +22,7 @@ final class FindSkillsToolTest extends FixtureTestCase
 
     public function test_skills_that_need_a_weapon_come_lowest_level_first_with_their_details(): void
     {
-        $result = $this->find(['needs' => 'CROSSBOW', 'max_level' => 10]);
+        $result = $this->find(['needs' => ' CROSSBOW ', 'max_level' => 10]);
 
         $this->assertSame(['needs' => 'CROSSBOW', 'levels' => '1 to 10'], $result['filters']);
         $this->assertSame(5, $result['total']);
@@ -116,6 +116,12 @@ final class FindSkillsToolTest extends FixtureTestCase
         $this->assertNotContains('Rune of the Snare', $trap);
         $this->assertNotContains('Rune of the Pylon', $trap);
         $this->assertContains('Rune of Brutality', $trap);
+
+        // Mending Light's type is Heal, which isn't one of its tags (Spell, Area). The Snare rune
+        // supports spells but names Heal under "Cannot support", so the type must be checked too.
+        $heal = array_column($this->find(['supports_for' => 'Mending Light', 'limit' => 50])['supports'], 'name');
+        $this->assertNotContains('Rune of the Snare', $heal);
+        $this->assertContains('Rune of Precision', $heal);
 
         $shot = $this->find(['supports_for' => 'Piercing Shot', 'limit' => 50])['supports'];
         $snare = array_values(array_filter($shot, fn (array $r) => $r['name'] === 'Rune of the Snare'))[0];

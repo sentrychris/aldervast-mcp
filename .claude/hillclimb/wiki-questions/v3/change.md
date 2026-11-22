@@ -1,0 +1,1 @@
+Shorter tool descriptions (about 30% fewer characters, no game names in them), and one sentence in the instructions: summaries are previews, so read the full entry for a count, a list or exact figures.

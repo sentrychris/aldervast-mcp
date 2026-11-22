@@ -28,22 +28,17 @@ final class ListCategoryTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Lists every Aldervast wiki entry in one category, in wiki order, with each '
-                . 'entry\'s name, short summary (often its level; one ending in " …" was cut off, so '
-                . 'don\'t guess the rest) and URL. Use it to browse, e.g. "every '
-                . 'group dungeon and its level", "all mounts", "the raids". Also use it when search_wiki '
-                . 'misses because the question uses different words than the wiki: list the likely '
-                . 'category and pick out the entry by meaning. Call it with no '
-                . 'category to get the list of categories and how many entries each has. Big categories '
-                . 'come in pages; pass next_offset back as offset for the next page.',
+            'description' => 'Lists the wiki entries in one category, in wiki order: name, summary and URL. Use '
+                . 'it to browse a category, or when search_wiki misses because the question\'s words differ '
+                . 'from the wiki\'s: list the likely category and pick the entry by meaning. With no category, '
+                . 'it lists the categories and their sizes. Big categories come in pages: pass next_offset back '
+                . 'as offset.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
                     'category' => [
                         'type' => 'string',
-                        'description' => 'Optional. A category such as "World boss", "Boss", "Raid boss", '
-                            . '"Group dungeon", "Raid", "Mount", "Pet", "Class", "Region", "Settlement". '
-                            . 'Case-insensitive; a prefix also works. Leave it out to list the categories.',
+                        'description' => 'Optional. Case-insensitive; a prefix also works. Leave it out to list the categories.',
                     ],
                     'offset' => [
                         'type' => 'integer',

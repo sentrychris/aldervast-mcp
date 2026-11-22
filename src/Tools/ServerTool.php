@@ -27,9 +27,8 @@ final class ServerTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Lists the public Aldervast game servers. Returns each server\'s name, '
-                . 'address, port and a short note. Use it whenever the user asks which servers exist '
-                . 'or how to connect to one.',
+            'description' => 'Lists the public Aldervast game servers: name, address, port and a note. Use it '
+                . 'when asked which servers exist or how to connect to one.',
             // JSON Schema for the input. This tool takes no arguments, so it's an empty object.
             // (Must be an object {} in JSON, not an array [], hence the (object) cast.)
             'input_schema' => [

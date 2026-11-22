@@ -46,30 +46,23 @@ final class SearchWikiTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Searches the Aldervast game wiki: about 1,840 entries covering quests, items, '
-                . 'monsters, bosses, dungeons, raids, places, people, factions, classes, skills, passives, '
-                . 'mounts, pets, professions, achievements, guides and more. Matches the query against each '
-                . 'entry\'s name, tags, category and short summary, and returns the best matches with their '
-                . 'name, category, summary and wiki URL. Use it first for any question about the game world, '
-                . 'to find the right entry. Summaries are short, and one ending in " …" was cut off by '
-                . 'the index: don\'t guess the missing words; call get_wiki_entry if they matter. Short queries of distinctive words work best, such as '
-                . '"hollow crypt" or "fire projectile". It matches words, not meaning, and the wiki has '
-                . 'its own names for things, which are often not the words a player would use. If the '
-                . 'results don\'t fit the question, search again with synonyms or related words, or '
-                . 'browse the likely category with list_category.',
+            'description' => 'Searches the Aldervast wiki (about 1,840 entries on every part of the game) for '
+                . 'words in each entry\'s name, tags, category and summary, and returns the best matches: name, '
+                . 'category, summary and URL. Use it first, to find entries. It matches words, not meaning, and '
+                . 'the wiki often names things differently from players: if the results don\'t fit, search again '
+                . 'with other words, or browse the likely category with list_category. Short queries of '
+                . 'distinctive words work best.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
                     'query' => [
                         'type' => 'string',
-                        'description' => 'Words to look for, e.g. "Harrowford", "hollow crypt", "frost raid".',
+                        'description' => 'Words to look for.',
                     ],
                     'category' => [
                         'type' => 'string',
-                        'description' => 'Optional. Only return entries in this category, e.g. "Quest", '
-                            . '"Group dungeon", "Raid", "Boss", "World boss", "Mount", "Pet", "Skill glyph", '
-                            . '"Unique item", "Place", "Person", "Guide". Case-insensitive. A prefix also works: '
-                            . '"hourglass" matches "Hourglass run" and "Hourglass omen".',
+                        'description' => 'Optional: only entries in this category (list_category lists them). '
+                            . 'Case-insensitive; a prefix matches every category that starts with it.',
                     ],
                     'limit' => [
                         'type' => 'integer',

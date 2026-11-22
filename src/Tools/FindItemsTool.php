@@ -30,39 +30,35 @@ final class FindItemsTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Lists the Aldervast items of a type, highest level first: base items (name, type, '
-                . 'level, attribute requirements, base stats, implicit, sockets) and unique items (name, type, '
-                . 'base item, level, modifiers, and where they drop or which reward gives them), each with its '
-                . 'wiki URL. Use it to choose gear for a character, e.g. the best item of a type that a '
-                . 'character of some level can use: pass max_level. Call it with no type to get the list of '
-                . 'item types and how many items each has. A type matches exactly if it can, and otherwise '
-                . 'matches every type whose name contains it, so one word can cover several types.',
+            'description' => 'Lists the items of a type, highest level first: base items (level, requirements, '
+                . 'base stats, implicit, sockets) and unique items (base, level, modifiers, and where they drop '
+                . 'or which reward gives them), with URLs. Use it to choose gear, e.g. the best item of a type '
+                . 'at a character\'s level (max_level). With no type, it lists the item types. A type matches '
+                . 'exactly if it can, and otherwise every type that contains the word.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
                     'type' => [
                         'type' => 'string',
-                        'description' => 'An item type, or a word from one, such as "Crossbows", "boots" or '
-                            . '"evasion". Case-insensitive. Leave it out to list the types.',
+                        'description' => 'An item type, or a word from one. Case-insensitive.',
                     ],
                     'max_level' => [
                         'type' => 'integer',
                         'minimum' => 1,
                         'maximum' => LevellingRouteTool::MAX_LEVEL,
-                        'description' => 'Only items whose level is at most this, e.g. the character\'s level.',
+                        'description' => 'Only items up to this level, e.g. the character\'s level.',
                     ],
                     'min_level' => [
                         'type' => 'integer',
                         'minimum' => 1,
                         'maximum' => LevellingRouteTool::MAX_LEVEL,
-                        'description' => 'Only items whose level is at least this.',
+                        'description' => 'Only items from this level up.',
                     ],
                     'limit' => [
                         'type' => 'integer',
                         'minimum' => 1,
                         'maximum' => self::MAX_LIMIT,
-                        'description' => 'The most base items, and the most unique items, to return. Default '
-                            . self::DEFAULT_LIMIT . '.',
+                        'description' => 'The most base items, and the most uniques, to return. Default ' . self::DEFAULT_LIMIT . '.',
                     ],
                 ],
             ],

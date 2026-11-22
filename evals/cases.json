@@ -3,7 +3,7 @@
         "The eval's test questions, written the way players type them. evals/run.php runs each one through the agent loop and checks two things:",
         "found: one of these texts appears in a tool result, i.e. Claude was shown the right wiki entry. An empty list means any wiki tool call counts (for questions about things that don't exist).",
         "answer: every pattern matches Claude's final answer. Each pattern is a regular expression, matched ignoring case.",
-        "source: 'chris' for questions asked in Claude Desktop or seen in the tool call log; 'written' for variations in the same style. Every expected answer was checked against the wiki on 2026-11-21 (game version 1.14.95); the four 'item' cases on 2026-11-22, same version."
+        "source: 'chris' for questions asked in Claude Desktop or seen in the tool call log; 'written' for variations in the same style. Every expected answer was checked against the wiki on 2026-11-21 (game version 1.14.95); the 'item' cases and the last four on 2026-11-22, same version."
     ],
     "cases": [
         {"id": "deer-boss", "source": "chris", "tags": ["boss"], "question": "What is the big deer boss in Aldervast called?",
@@ -78,6 +78,14 @@
         {"id": "unique-rings-35", "source": "written", "tags": ["item"], "question": "which unique rings can i get before level 35 in aldervast",
          "found": ["wiki/uniques.html#unique-u_rimeheart", "wiki/uniques.html#unique-u_lampblack"], "answer": ["Rimeheart", "Lampblack"]},
         {"id": "rimeheart-drop", "source": "written", "tags": ["item"], "question": "where does the rimeheart ring drop in aldervast",
-         "found": ["wiki/uniques.html#unique-u_rimeheart"], "answer": ["Rime Colossus"]}
+         "found": ["wiki/uniques.html#unique-u_rimeheart"], "answer": ["Rime Colossus"]},
+        {"id": "piercing-shot-runes", "source": "chris", "tags": ["skill"], "question": "In Aldervast, which support runes go with Piercing Shot?",
+         "found": ["wiki/supports.html#support-rune_brutality"], "answer": ["Brutality", "Rune of Piercing"]},
+        {"id": "crossbow-skills-10", "source": "chris", "tags": ["skill"], "question": "what crossbow skills can I use at level 10?",
+         "found": ["wiki/skills.html#skill-rime_shot"], "answer": ["Piercing Shot", "Arrow Squall", "Fanfire", "Kindled Bolt", "Rime Shot"]},
+        {"id": "leap-slam-cooldown", "source": "written", "tags": ["skill"], "question": "whats the cooldown on leap slam in aldervast",
+         "found": ["wiki/skills.html#skill-leap_slam"], "answer": ["\\b2(\\.0)?\\s*-?\\s*(s|sec|secs|seconds?)\\b"]},
+        {"id": "ravager-life", "source": "written", "tags": ["class"], "question": "how much base life does a ravager start with in aldervast",
+         "found": ["wiki/classes.html#class-ravager"], "answer": ["\\b80\\b"]}
     ]
 }

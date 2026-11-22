@@ -29,7 +29,9 @@ final class Tools
         . 'Typical flow: search_wiki to find entries (or list_category to browse when the player\'s wording '
         . 'doesn\'t match the wiki\'s), then get_wiki_entry for the full details. Base the answer on what '
         . 'the tools return, and cite the wiki URLs. Text ending in " …" was cut short: never fill in the '
-        . 'missing words yourself; fetch the full entry with get_wiki_entry, or say the detail is incomplete.';
+        . 'missing words yourself; fetch the full entry with get_wiki_entry, or say the detail is incomplete. '
+        . 'Summaries in search and list results are previews and can leave things out even when they are not '
+        . 'cut, so for a count, a complete list or exact figures, read the full entry.';
 
     /** Each tool's class. tools/list returns the tools in this order. */
     public const ALL = [

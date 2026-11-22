@@ -72,7 +72,7 @@ deploy/             deploy.sh (copy code + rebuild, no sudo), setup-host.sh (hos
                     aldervast-site.conf (the host's Apache site)
 show-log.php        prints the tool call log, grouped by session ("composer log")
 agent.php           runs AgentLoop on one question and prints every step (the learning demo)
-evals/cases.json    the eval's 32 questions and expected answers
+evals/cases.json    the eval's 36 questions and expected answers
 evals/run.php       runs the eval (PAID API); results in .claude/hillclimb/wiki-questions/<variant>/
 evals/build-report-lite.mjs  builds report.html from those results ("composer eval:report"); copied from the claude-api skill
 tests/              PHPUnit, namespace Aldervast\Tests, in the same five folders as src/; offline tests on
@@ -102,7 +102,7 @@ composer test:mutation            # mutation testing with Infection (about 90 s)
 php tests/update-fixtures.php     # refresh tests/fixtures/ after the site changes on purpose
 composer log                      # the MCP server's recent tool calls, grouped by session
 php agent.php "your question"     # needs ANTHROPIC_API_KEY in .env, and costs a little money
-composer eval                     # the eval: 32 questions x 2 runs through AgentLoop. PAID; ask Chris first
+composer eval                     # the eval: 36 questions x 2 runs through AgentLoop. PAID; ask Chris first
 composer eval:report              # rebuilds .claude/hillclimb/wiki-questions/report.html from the results (free)
 bash deploy/deploy.sh             # (Git Bash) copy the website's code to versyxdigital.net and rebuild its container
 

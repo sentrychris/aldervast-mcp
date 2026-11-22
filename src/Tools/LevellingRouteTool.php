@@ -46,18 +46,14 @@ final class LevellingRouteTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Lists the regions, dungeons (story dungeons, group dungeons, raids and trials) and '
-                . 'quests in Aldervast that suit a character level, from the Level facts on the wiki. Use it '
-                . 'when a player asks where to go, what to do, or what to run at their level. A dungeon or '
-                . 'quest suits a level when its own level is within ' . self::RANGE . ' of it; a quest is '
-                . 'only listed if the player can already take it; a region is listed if its level range '
-                . 'includes the level. Each result has its level and wiki URL. Dungeons also have the quest '
-                . 'that leads into them, where the wiki names one, and open, when the dungeon is only open '
-                . 'at certain times. Quests also have their region, who gives '
-                . 'them and the quest that must come first; a quest of the main story has main_story, the '
-                . 'name of its chapter, and a quest without it is not part of the main story; a quest whose target '
-                . 'is a world boss has world_boss, the name of the boss. Call get_wiki_entry on a URL '
-                . 'for details.',
+            'description' => 'Lists the regions, dungeons (including raids and trials) and quests that suit a '
+                . 'character level. Use it when a player asks where to go or what to do at their level. A '
+                . 'dungeon or quest suits the level when its own level is within ' . self::RANGE . '; quests the '
+                . 'player can\'t take yet are left out; a region suits it when its range includes the level. '
+                . 'Each result has its level and URL. Dungeons may have quests (the quest that leads in) and '
+                . 'open (only open at certain times). Quests have region, giver and the quest that must come '
+                . 'first, plus main_story (the chapter; a quest without it isn\'t main story) and world_boss '
+                . '(when its target is a world boss).',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [

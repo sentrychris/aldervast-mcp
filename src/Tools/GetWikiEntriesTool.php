@@ -36,14 +36,11 @@ final class GetWikiEntriesTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Fetches several full entries from the Aldervast game wiki in one call, each in '
-                . 'the same form as get_wiki_entry (name, sub, description, facts, sections, links). Use it '
-                . 'instead of several get_wiki_entry calls when you already have the URLs and need the '
-                . 'details of each, e.g. to compare the options in a category, or to read the entries that '
-                . 'another entry links to. Pass URLs from search_wiki, list_category or an entry\'s links; '
-                . 'names aren\'t accepted (use get_wiki_entry for a name). Up to ' . self::MAX_URLS . ' URLs '
-                . 'per call: any beyond that are listed under not_fetched, so call again with those. A URL '
-                . 'that fails is listed under errors with the reason, and the other entries still come back.',
+            'description' => 'Fetches up to ' . self::MAX_URLS . ' full wiki entries in one call, each as '
+                . 'get_wiki_entry returns it. Use it instead of several get_wiki_entry calls when you already '
+                . 'have the URLs, e.g. to compare options or read the entries that an entry links to. URLs only, '
+                . 'not names. URLs past the limit come back under not_fetched; a URL that fails is listed under '
+                . 'errors, and the others still come back.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
@@ -52,9 +49,7 @@ final class GetWikiEntriesTool
                         'items' => ['type' => 'string'],
                         'minItems' => 1,
                         'maxItems' => self::MAX_URLS,
-                        'description' => 'Wiki entry URLs, such as '
-                            . '"https://aldervast.online/wiki/dungeons.html#dungeon-hollow_crypt". '
-                            . 'The entries come back in this order.',
+                        'description' => 'Wiki entry URLs. The entries come back in this order.',
                     ],
                 ],
                 'required' => ['urls'],

@@ -37,28 +37,21 @@ final class GetWikiEntryTool
     {
         return [
             'name' => self::NAME,
-            'description' => 'Fetches one full entry from the Aldervast game wiki. Returns JSON with its name, '
-                . 'sub (kind, level or group), description (lore), facts (label => value, such as Level, '
-                . 'Entrance, Boss, Monsters, Given by, Needs, Rewards, or an item\'s stats), sections '
-                . '(such as Objectives, Phases, Encounter journal, or a guide\'s steps) and links: the other '
-                . 'entries it mentions, name => URL. Use it after search_wiki whenever the summary isn\'t '
-                . 'enough, and call it again on a link to follow the wiki, e.g. from a dungeon to its boss, '
-                . 'then to what the boss drops. Pass a URL from search_wiki (most reliable) or an exact '
-                . 'entry name. Many names are shared (the Hollow Crypt is a place, a quest and a dungeon); '
-                . 'then it lists the matches, and you call again with a URL or add a category.',
+            'description' => 'Fetches one full wiki entry: name, sub (kind or level), description, facts '
+                . '(label => value), sections (such as objectives, phases or a guide\'s steps) and links (name '
+                . '=> URL of the entries it mentions). Use it when a summary isn\'t enough, and on a link to '
+                . 'follow the wiki from one entry to the next. Pass a URL (most reliable) or an exact name; if '
+                . 'several entries share the name, it lists them, and you call again with a URL or a category.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
                     'url_or_name' => [
                         'type' => 'string',
-                        'description' => 'A wiki URL from search_wiki, such as '
-                            . '"https://aldervast.online/wiki/dungeons.html#dungeon-hollow_crypt", '
-                            . 'or an exact entry name, such as "Warden Ossric, the Hollowed".',
+                        'description' => 'A wiki URL (https://aldervast.online/wiki/<page>.html#<id>) or an exact entry name.',
                     ],
                     'category' => [
                         'type' => 'string',
-                        'description' => 'Optional, used with a name: picks between entries that share it, '
-                            . 'e.g. "Dungeon" or "Quest". Same categories as search_wiki.',
+                        'description' => 'Optional, with a name: picks between entries that share it.',
                     ],
                 ],
                 'required' => ['url_or_name'],

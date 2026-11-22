@@ -38,6 +38,7 @@ src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.ph
   GetWikiEntryTool.php  the get_wiki_entry tool: resolves a URL or name, returns one entry, trimmed
   GetWikiEntriesTool.php  the get_wiki_entries tool: up to 10 URLs in one call, each page parsed once; failed URLs under "errors"
   ListCategoryTool.php  the list_category tool: a category's entries from search.json, paged; no category = category counts
+  FindItemsTool.php   the find_items tool: items.html rows (type = table heading) + uniques.html (Type fact), by type and level, highest first
   LevellingRouteTool.php  the levelling_route tool: regions, dungeons and quests that suit a level, from the Level facts
   LatestReleaseTool.php  the latest_release tool: the first release in changelog.html's list (version, date, notes)
   WikiEntryParser.php one entry's HTML -> array (article or table row)
@@ -247,6 +248,10 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
 7. ~~`get_wiki_entries(urls)`~~: done (`src/Tools/GetWikiEntriesTool.php`). Planning one build took
    about 30 `get_wiki_entry` calls; this returns up to 10 entries per call, each as `get_wiki_entry`
    returns it (`GetWikiEntryTool::fromPage()`).
+8. ~~`find_items(type, max_level)`~~: done (`src/Tools/FindItemsTool.php`). Next candidates: `find_skills`
+   (skills by weapon, tags and level), `whats_on` (festival, world boss times, timed dungeons; check
+   first that the wiki gives the times in a form code can read), `search_releases` (the whole
+   changelog), and backlinks ("what drops this?"), which needs every wiki page read; ask Chris first.
 
 **Hard; don't start without asking:** a live `server_status` tool. The status query runs over ENet (a
 UDP protocol) plus Godot's RPC encoding, which PHP can't speak without reimplementing both. A simpler

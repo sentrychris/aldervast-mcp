@@ -31,6 +31,7 @@ const PAGES = [
     'wiki/dungeons.html',
     'wiki/bosses.html',
     'wiki/items.html',
+    'wiki/uniques.html',
     'wiki/achievements.html',
     'wiki/regions.html',
     'wiki/quests.html',

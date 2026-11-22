@@ -38,6 +38,7 @@ final class Tools
         GetWikiEntryTool::class,
         GetWikiEntriesTool::class,
         ListCategoryTool::class,
+        FindItemsTool::class,
         LevellingRouteTool::class,
         LatestReleaseTool::class,
     ];

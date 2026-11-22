@@ -63,6 +63,10 @@ src/Eval/           Aldervast\Eval: the eval's grading
 src/Web/            Aldervast\Web: the website's chatbot (PAID API on the server's key)
   Chat.php            one visitor question -> AgentLoop -> {answer, tools} or {error}
   RateLimit.php       per-IP-per-hour and per-day limits, in one JSON file, IPs hashed
+  UsageLog.php        one JSON line per question in cache/chat-usage.jsonl: outcome, model, tokens. Never the question or visitor
+  UsageReport.php     that log per UTC day; the cost function is passed in (prices live in Eval, which Web may not use)
+  UsageDashboard.php  the /usage page (HTML + SVG chart, no JS library); index.php guards it with ALDERVAST_USAGE_PASSWORD
+show-chat-usage.php the chatbot's usage and estimated cost per UTC day (docker exec aldervast-mcp-web-1 php show-chat-usage.php)
 mcp-server.php      stdio loop around Mcp\Server (stays at the root: .mcp.json, Codex and Claude
                     Desktop's config point here)
 public/             the website at https://aldervast.versyxdigital.net: index.php (router: /, /chat, /mcp),

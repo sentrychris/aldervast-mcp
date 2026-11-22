@@ -18,5 +18,7 @@ WORKDIR /app
 COPY --from=vendor /app/vendor ./vendor
 COPY src ./src
 COPY public ./public
+# Sums up the chatbot's usage log: docker exec aldervast-mcp-web-1 php show-chat-usage.php
+COPY show-chat-usage.php ./
 # cache/ holds the downloaded wiki pages and the chatbot's counts; Apache's user must be able to write it.
 RUN mkdir -p cache logs && chown www-data:www-data cache logs

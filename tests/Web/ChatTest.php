@@ -8,6 +8,7 @@ use Aldervast\Agent\AgentLoop;
 use Aldervast\Tests\FixtureTestCase;
 use Aldervast\Web\Chat;
 use Aldervast\Web\RateLimit;
+use Aldervast\Web\UsageLog;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -33,16 +34,54 @@ final class ChatTest extends FixtureTestCase
     {
         @unlink($this->limitsFile);
         @unlink($this->limitsFile . '.log');
+        @unlink($this->limitsFile . '.usage');
         ini_restore('error_log');
         parent::tearDown();
     }
 
-    /** A chat whose agent loop gets these API responses, in order. */
+    /** A chat whose agent loop gets these API responses, in order, and whose usage log is a temporary file. */
     private function chat(array $responses, int $perHour = 10): Chat
     {
         $http = new Client(['handler' => HandlerStack::create(new MockHandler($responses)), 'base_uri' => 'https://api.example.test']);
 
-        return new Chat(new AgentLoop($http, sleep: fn () => null), new RateLimit($this->limitsFile, $perHour, 100));
+        return new Chat(
+            new AgentLoop($http, sleep: fn () => null),
+            new RateLimit($this->limitsFile, $perHour, 100),
+            usage: new UsageLog($this->limitsFile . '.usage'),
+        );
+    }
+
+    /** The lines that the chat wrote to its usage log. */
+    private function usage(): array
+    {
+        $file = $this->limitsFile . '.usage';
+
+        return is_file($file) ? array_map(fn (string $l) => json_decode($l, true), file($file, FILE_IGNORE_NEW_LINES)) : [];
+    }
+
+    public function test_every_question_that_reaches_the_api_or_the_limit_is_logged_without_its_text(): void
+    {
+        $chat = $this->chat([
+            self::reply('tool_use', [['type' => 'tool_use', 'id' => 't1', 'name' => 'search_wiki', 'input' => ['query' => 'stag']]]),
+            self::reply('end_turn', [['type' => 'text', 'text' => 'Elderhorn.']]),
+            self::reply('refusal', []),
+            new Response(400, [], '{"error":{"message":"bad"}}'),
+        ], perHour: 3);
+
+        $chat->ask('{"question": "big deer boss?"}', '1.1.1.1');
+        $chat->ask('{"question": "second"}', '1.1.1.1');
+        $chat->ask('{"question": "third"}', '1.1.1.1');
+        $chat->ask('{"question": "fourth"}', '1.1.1.1');
+        $chat->ask('{"question": ""}', '1.1.1.1'); // refused before the limit or the API: not logged
+
+        $lines = $this->usage();
+        $this->assertSame(['answered', 'no_answer', 'failed', 'limited'], array_column($lines, 'outcome'));
+        $this->assertSame(['claude-sonnet-5-5', 'claude-sonnet-5-5', 'claude-sonnet-5-5', ''], array_column($lines, 'model'));
+        $this->assertSame([1, 0, 0, 0], array_column($lines, 'tool_calls'));
+        $this->assertSame([2, 1, 0, 0], array_column($lines, 'turns'));
+        $this->assertSame(20, $lines[0]['usage']['input_tokens']);
+        $this->assertSame(5, $lines[1]['usage']['output_tokens']);
+        $this->assertStringNotContainsString('deer', (string) file_get_contents($this->limitsFile . '.usage'));
     }
 
     private static function reply(string $stopReason, array $content): Response

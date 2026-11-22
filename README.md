@@ -39,9 +39,13 @@ src/Eval/      Aldervast\Eval    the eval
 src/Web/       Aldervast\Web     the website's chatbot
   Chat.php               answers one visitor's question with the agent loop
   RateLimit.php          limits questions per visitor and per day, because each answer costs money
+  UsageLog.php           writes what each question used (tokens, never the question) to cache/chat-usage.jsonl
+  UsageReport.php        adds that log up per day (the usage page and show-chat-usage.php use it)
+  UsageDashboard.php     the usage page at /usage: tiles, a chart of cost per day, and a table
 
 mcp-server.php           the MCP server over stdio (step 2 below); uses src/Mcp
 show-log.php             prints the tool call log as a readable list ("composer log")
+show-chat-usage.php      prints what the website's chatbot used and cost, per day (run on the server)
 agent.php                runs the agent loop on one question and prints every step; uses src/Agent
 public/                  the website (step 3 below): index.php, the chatbot page, the chat widget
 Dockerfile, docker/, docker-compose.yml, deploy/   how the website runs on a server (step 3)
@@ -525,6 +529,33 @@ does, and returns the answer as JSON. **Every answer costs money on the API key 
 
 Without `ANTHROPIC_API_KEY`, the chatbot replies that it isn't set up, and `/mcp` still works.
 
+### What the chatbot costs
+
+Every question that reaches the API (or is refused by the limits) adds one line to
+`cache/chat-usage.jsonl` on the server (`src/Web/UsageLog.php`). A line holds the time, the outcome
+(answered, no answer, failed or limited), the model, the token counts, the number of tool calls and
+turns, and how long it took. It never holds the question, the answer, or anything about the visitor.
+
+To see it per day, open **https://aldervast.versyxdigital.net/usage**. The page shows today's
+questions against the daily limit, the cost today and over 30 days, the cost per answer, a chart of
+cost per day, and the table below it (`src/Web/UsageDashboard.php`). It needs the password in
+`ALDERVAST_USAGE_PASSWORD` (the browser asks for it; any user name works). Without that setting, the
+page doesn't exist. Or run this on the server:
+
+```bash
+docker exec aldervast-mcp-web-1 php show-chat-usage.php      # the last 14 days
+docker exec aldervast-mcp-web-1 php show-chat-usage.php 60   # the last 60 days
+```
+
+```
+Day (UTC)   Answered  No answer  Failed  Limited  Input tokens  Output tokens      Cost
+2026-11-21         1          0       0        0        11,020            400     $0.02
+```
+
+The cost is worked out from the token counts with the eval's price list (`EvalScore::PRICES`), so
+it's an estimate. The real bill is in the Claude Console. The file is in the Docker volume, so it
+stays when the container is rebuilt.
+
 ### The chat widget
 
 `public/widget.js` adds a round chat button to the bottom right of any page, which opens a small
@@ -551,6 +582,7 @@ leaves the server: `deploy/deploy.sh` doesn't send this PC's `.env`, and doesn't
 | `ALDERVAST_CHAT_PER_DAY` | `100` | Questions per day (UTC) from everyone together |
 | `ALDERVAST_CHAT_ORIGINS` | `https://aldervast.online` | Sites that may use the widget, separated by commas |
 | `ALDERVAST_ALLOWED_ORIGINS` | `https://claude.ai,https://claude.com` | Browser origins that may call `/mcp` |
+| `ALDERVAST_USAGE_PASSWORD` | none | The password for the usage page at `/usage`. Without it, that page doesn't exist |
 | `ALDERVAST_TOOL_LOG` | off | A file path inside the container turns the tool call log on |
 
 After changing `.env`, run `docker compose up -d` in `~/aldervast-mcp` on the server.
@@ -614,7 +646,9 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `PromptsTest` | The prompts: their arguments, each prompt's exact text, optional arguments left out when blank, levels 1 and 60 allowed, and errors for an unknown prompt, a missing argument or a bad level |
 | `ServerTest` | The MCP requests, answered in this process: version agreement in `initialize`, the tool list, tool calls and failed tools (and that both are logged), resources, prompts, and the spec's error codes |
 | `HttpTransportTest` | MCP over HTTP: replies as JSON, 202 for notifications, 405 for GET, 403 for a bad Origin, 400 for an unknown protocol version, bad JSON or a batch, and 413 for a body over the limit |
-| `ChatTest` | The chatbot, against recorded API responses: the answer and the tools used, no API key, missing or too long questions (refused before anything is paid for), the rate limit, and API failures |
+| `ChatTest` | The chatbot, against recorded API responses: the answer and the tools used, no API key, missing or too long questions (refused before anything is paid for), the rate limit, API failures, its instructions word for word, and a usage line for every outcome without the question's text |
+| `UsageReportTest` | The usage log added up per day (every day listed, each outcome counted, damaged lines skipped, unknown prices), and the usage page: its tiles, a bar per day with a cost, hover details, the table, and the page with no questions |
+| `UsageLogTest` | The chatbot's usage log: one line per question with every field, missing token counts as 0, lines added to the end, and a file that can't be written breaks nothing |
 | `RateLimitTest` | The chatbot's limits: per visitor per hour, per day for everyone, a new day, refused questions not counted, and no IP address in the file |
 | `ToolCallLogTest` | The tool call log: one JSON line per call with every field, lines added to the end, errors kept but shortened, broken text still logged, and a file that can't be written doesn't stop the call |
 | `AgentLoopTest` | The agent loop, against recorded API responses (no paid calls): tool calls and results, the history sent back, retries and their waits, time limits, a different model answering, refusals, the five-turn limit |

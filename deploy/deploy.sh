@@ -12,7 +12,7 @@ set -euo pipefail
 HOST="${1:-chris@versyxdigital.net}"
 DIR=aldervast-mcp
 
-tar -czf - composer.json composer.lock Dockerfile docker-compose.yml .dockerignore docker deploy public src \
+tar -czf - composer.json composer.lock Dockerfile docker-compose.yml .dockerignore docker deploy public src show-chat-usage.php \
   | ssh "$HOST" "mkdir -p $DIR && cd $DIR && rm -rf docker deploy public src && tar -xzf - && docker compose up -d --build"
 
 echo "Deployed. Check it with: curl -s http://127.0.0.1:8090/ on the server, or the public URL."

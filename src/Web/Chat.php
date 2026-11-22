@@ -42,11 +42,13 @@ final class Chat
     /**
      * @param AgentLoop|null $loop      null when the server has no API key: the chatbot is off
      * @param float          $timeLimit seconds that one answer may take
+     * @param UsageLog|null  $usage     where the tokens that each question used are written; null for nowhere
      */
     public function __construct(
         private ?AgentLoop $loop,
         private RateLimit $limit,
         private float $timeLimit = 90,
+        private ?UsageLog $usage = null,
     ) {
     }
 
@@ -70,18 +72,31 @@ final class Chat
         }
         $refused = $this->limit->take($ip);
         if ($refused !== null) {
+            $this->usage?->record('limited');
+
             return self::error(429, $refused);
         }
 
         try {
             $result = $this->loop->run($question, $this->timeLimit);
         } catch (AgentLoopError $e) {
-            // The details go to the server's log, not to the visitor.
+            // The details go to the server's log, not to the visitor. Tokens spent before the error
+            // are still paid for, so they are recorded.
             error_log("[aldervast-chat] {$e->kind}: {$e->getMessage()}");
+            $this->usage?->record('failed', AgentLoop::MODEL, $e->usage);
 
             return self::error(502, 'Sorry, something went wrong while answering. Please try again in a minute.');
         }
-        if (trim($result['answer']) === '') {
+        $answered = trim($result['answer']) !== '';
+        $this->usage?->record(
+            $answered ? 'answered' : 'no_answer',
+            $result['model'] !== '' ? $result['model'] : AgentLoop::MODEL,
+            $result['usage'],
+            count($result['calls']),
+            $result['turns'],
+            $result['latency_s'],
+        );
+        if (!$answered) {
             error_log("[aldervast-chat] no answer, stop_reason {$result['stop_reason']}");
 
             return self::error(502, "Sorry, I couldn't find an answer to that. Please try asking another way.");

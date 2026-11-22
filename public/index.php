@@ -10,6 +10,7 @@
  *   POST /chat       one question for the chatbot (src/Web/Chat.php); needs ANTHROPIC_API_KEY
  *   *    /mcp        the MCP server over HTTP, for custom connectors (src/Mcp/HttpTransport.php)
  *   GET  /widget.js  the chat button for other sites; Apache serves it directly, as a real file
+ *   GET  /usage      the chatbot's usage and cost per day (src/Web/UsageDashboard.php); needs a password
  *
  * Settings come from environment variables (README.md, "Offering the server to other people").
  */
@@ -20,7 +21,11 @@ use Aldervast\Mcp\HttpTransport;
 use Aldervast\Mcp\Server;
 use Aldervast\Mcp\ToolCallLog;
 use Aldervast\Web\Chat;
+use Aldervast\Eval\EvalScore;
 use Aldervast\Web\RateLimit;
+use Aldervast\Web\UsageDashboard;
+use Aldervast\Web\UsageLog;
+use Aldervast\Web\UsageReport;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -85,9 +90,33 @@ if ($path === '/chat') {
             (int) Env::get('ALDERVAST_CHAT_PER_HOUR', '10'),
             (int) Env::get('ALDERVAST_CHAT_PER_DAY', '100'),
         );
-        $response = (new Chat($loop, $limit))->ask((string) file_get_contents('php://input'), client_ip());
+        // What each question used (tokens, never the question), for show-chat-usage.php.
+        $usage = new UsageLog(dirname(__DIR__) . '/cache/chat-usage.jsonl');
+        $response = (new Chat($loop, $limit, usage: $usage))->ask((string) file_get_contents('php://input'), client_ip());
         respond($response['status'], ['Content-Type' => 'application/json'] + $cors, json_encode($response['body'], JSON_UNESCAPED_SLASHES));
     }
+}
+
+if ($path === '/usage' && $method === 'GET') {
+    // The chatbot's usage page. It's private, so it needs the password in ALDERVAST_USAGE_PASSWORD
+    // (the browser asks for it; any user name works). Without that setting, the page doesn't exist.
+    $password = Env::get('ALDERVAST_USAGE_PASSWORD');
+    if ($password === '') {
+        respond(404, ['Content-Type' => 'text/plain'], "Not found\n");
+    }
+    if (!hash_equals($password, (string) ($_SERVER['PHP_AUTH_PW'] ?? ''))) {
+        respond(401, ['WWW-Authenticate' => 'Basic realm="Aldervast usage"', 'Content-Type' => 'text/plain'], "Password needed\n");
+    }
+    // The prices are the eval's (EvalScore::PRICES). This file may use any part of src/; UsageReport
+    // may not use Eval, so it gets the cost as a function.
+    $days = UsageReport::days(
+        dirname(__DIR__) . '/cache/chat-usage.jsonl',
+        fn (array $rows) => EvalScore::cost($rows),
+        30,
+        time(),
+    );
+    respond(200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store'],
+        UsageDashboard::render($days, (int) Env::get('ALDERVAST_CHAT_PER_DAY', '100')));
 }
 
 if ($path === '/' && $method === 'GET') {

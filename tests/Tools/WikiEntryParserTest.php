@@ -88,6 +88,18 @@ final class WikiEntryParserTest extends FixtureTestCase
         $this->assertArrayHasKey('Weather', $e['sections']);
     }
 
+    public function test_facts_in_a_two_column_layout_div_are_still_found(): void
+    {
+        // A class entry has its Style, Group roles and so on inside <div class="split">, next to
+        // the attribute bars. Before "split" was in LAYOUT_CLASSES, they all came back as one line of text.
+        $e = $this->entry('wiki/classes.html', 'class-ravager');
+
+        $this->assertSame('Melee bruiser', $e['facts']['Style']);
+        $this->assertSame('80 / 40', $e['facts']['Base life / mana']);
+        $this->assertSame('Cleaving Strike', $e['facts']['Starting skill']);
+        $this->assertSame(['STR32', 'DEX14', 'INT14'], $e['text']);
+    }
+
     public function test_missing_entry_returns_null(): void
     {
         $this->assertNull($this->entry('wiki/dungeons.html', 'dungeon-no_such_place'));

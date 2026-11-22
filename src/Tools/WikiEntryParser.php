@@ -35,7 +35,7 @@ final class WikiEntryParser
      * there. We do the same for a <div> with no class at all. If the facts on a new kind of page
      * sit inside some other <div>, add that <div>'s class here.
      */
-    private const LAYOUT_CLASSES = ['with-img', 'loc-grid'];
+    private const LAYOUT_CLASSES = ['with-img', 'loc-grid', 'two', 'split'];
 
     /** Tags that hold nothing useful for the model. */
     private const SKIP_TAGS = ['img', 'svg', 'figure', 'script', 'style'];

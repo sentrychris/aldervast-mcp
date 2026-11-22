@@ -32,6 +32,8 @@ const PAGES = [
     'wiki/bosses.html',
     'wiki/items.html',
     'wiki/uniques.html',
+    'wiki/skills.html',
+    'wiki/supports.html',
     'wiki/achievements.html',
     'wiki/regions.html',
     'wiki/quests.html',

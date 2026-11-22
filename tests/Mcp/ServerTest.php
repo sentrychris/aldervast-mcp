@@ -123,12 +123,12 @@ final class ServerTest extends FixtureTestCase
 
     public function test_a_page_that_cannot_be_read_is_an_internal_error_with_its_uri(): void
     {
-        // skills.html is in the search index but has no saved copy, so reading it fails.
-        $reply = $this->send('resources/read', ['uri' => 'aldervast://wiki/skills.html']);
+        // monsters.html is in the search index but has no saved copy, so reading it fails.
+        $reply = $this->send('resources/read', ['uri' => 'aldervast://wiki/monsters.html']);
 
         $this->assertSame(-32603, $reply['error']['code']);
         $this->assertStringStartsWith('Could not read the page: No test fixture', $reply['error']['message']);
-        $this->assertSame(['uri' => 'aldervast://wiki/skills.html'], $reply['error']['data']);
+        $this->assertSame(['uri' => 'aldervast://wiki/monsters.html'], $reply['error']['data']);
     }
 
     public function test_a_resource_list_that_cannot_be_built_is_an_internal_error(): void

@@ -16,6 +16,7 @@ src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offer
   GetWikiEntriesTool.php the get_wiki_entries tool: up to ten entries in one call
   ListCategoryTool.php   the list_category tool: lists every entry in one category, in pages
   FindItemsTool.php      the find_items tool: the items of a type up to a level, best first
+  FindSkillsTool.php     the find_skills tool: skills by type, tag, weapon and level, or the runes for one skill
   LevellingRouteTool.php the levelling_route tool: the regions, dungeons and quests that suit a level
   LatestReleaseTool.php  the latest_release tool: the newest version and its notes, from the changelog
   WikiEntryParser.php    turns the HTML of one wiki entry into an array (get_wiki_entry uses it)
@@ -69,6 +70,7 @@ So `src/Tools/` is the whole MCP product, with no learning or measuring code mix
 | `get_wiki_entry` | `url_or_name`, optional `category` | One full entry: description, facts, sections, and links to the entries it mentions. |
 | `get_wiki_entries` | `urls` (1 to 10 wiki URLs) | The same as `get_wiki_entry` for each URL, in one call, with any URL that failed listed under `errors`. |
 | `list_category` | optional `category`, `offset`, `limit` (default 50, max 100) | Every entry in a category: name, summary, URL. With no category, the categories and their sizes. |
+| `find_skills` | optional `type`, `tag`, `needs`, `max_level`, `min_level`, `supports_for`, `limit` (default 25, max 50) | Skill glyphs matching every filter, lowest level first, with tags, what they need in hand, damage and mana. With `supports_for` (a skill's name), the support runes that fit that skill. |
 | `find_items` | optional `type`, `max_level`, `min_level`, `limit` (default 15, max 50) | The base items and unique items of a type within the levels, highest level first, with requirements, stats, modifiers and where uniques come from. With no type, the item types and their sizes. |
 | `levelling_route` | `level` (1 to 60) | The regions, dungeons and quests that suit that level, with levels, quest givers, the quest that must come first, the quest that leads into each dungeon, when a dungeon is only open at certain times, the main-story chapter of each main-story quest, the boss of a world boss quest, and URLs. |
 | `latest_release` | none | The newest version of the game: its version number, release date and release notes, from the changelog page. |
@@ -407,7 +409,7 @@ Tools are one of three things that an MCP server can offer. The other two are **
 
 | | Who decides | What this server offers |
 |---|---|---|
-| Tool | The model, during a chat | The eight tools above |
+| Tool | The model, during a chat | The nine tools above |
 | Resource | The person, who attaches it to a chat | Each wiki page, whole, as Markdown |
 | Prompt | The person, who picks it like a command | `plan_build` and `plan_levelling` |
 
@@ -599,6 +601,7 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `SearchWikiToolTest` | How results are ranked, the category filter, the result limit, the " …" on cut summaries, and HTML codes such as `&#x2019;` |
 | `GetWikiEntryToolTest` | Different ways of writing a URL, names that several entries share, suggestions for near misses, refusing other websites, and shortening long output |
 | `GetWikiEntriesToolTest` | Several entries in one call: each the same as from `get_wiki_entry`, in the order asked for, a repeated URL fetched once, failed URLs listed with their reasons next to the entries that worked, the limit of ten, and refusing input that isn't a list |
+| `FindSkillsToolTest` | Skills by type, tag (ignoring case), what they need in hand and level, all filters together, lowest level first, the limit, the runes that fit a skill (and those left out by "Cannot support"), and errors that list the valid values |
 | `FindItemsToolTest` | Item types matched exactly or by a word, highest level first and then by name, both level limits, the fields of base and unique items (and fields left out when an item lacks them), where uniques drop or which reward gives them, the limit, the list of types, and errors for an unknown type or a bad level |
 | `ListCategoryToolTest` | The list of categories and their sizes, pages of results for big categories, category labels, and cut summaries |
 | `LevellingRouteToolTest` | Which regions, dungeons and quests suit a level: both ends of a region's range, dungeons 2 levels away and not 3, a dungeon that scales, the quest that leads into a dungeon, when a dungeon is open, main-story chapters (and a side quest that a chapter guide links to, which stays unmarked), world boss quests, the 20-quest cut, the note when no region fits, and refused levels |

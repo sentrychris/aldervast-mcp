@@ -97,7 +97,7 @@ final class WikiPagesTest extends FixtureTestCase
         $bosses = $this->markdown('wiki/bosses.html');
 
         // Text that isn't the description or a fact follows the facts, as it is.
-        $this->assertStringContainsString("- **Passive web start:** Strength side of the web\n\nSTR32 DEX14 INT14", $classes);
+        $this->assertStringContainsString("- **Passive web start:** Strength side of the web\n\nSTR32\nDEX14\nINT14", $classes);
         $this->assertStringContainsString(
             "### Phases\n\n- From the start · Uses Rending Cleave, Crushing Slam",
             $bosses

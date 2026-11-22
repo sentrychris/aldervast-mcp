@@ -135,14 +135,14 @@ final class FindItemsTool
         return $items;
     }
 
-    /** The items of these types within the levels, highest level first, then by name. */
+    /** The items of these types within the levels, highest level first, then by name (ignoring case). */
     private static function select(array $items, array $types, int $min, int $max): array
     {
         $found = array_values(array_filter(
             $items,
             fn (array $item) => in_array($item['type'], $types, true) && $item['level'] >= $min && $item['level'] <= $max
         ));
-        usort($found, fn (array $a, array $b) => [$b['level'], $a['out']['name']] <=> [$a['level'], $b['out']['name']]);
+        usort($found, fn (array $a, array $b) => [$b['level'], mb_strtolower($a['out']['name'])] <=> [$a['level'], mb_strtolower($b['out']['name'])]);
 
         return $found;
     }
@@ -187,8 +187,11 @@ final class FindItemsTool
         ]);
     }
 
-    /** A level input as a number, or null when it's missing. */
-    private static function level(array $input, string $name): ?int
+    /**
+     * A level input as a number, or null when it's missing. Throws for anything that isn't a whole
+     * number from 1 to the highest level. find_skills uses it too, so both tools check levels alike.
+     */
+    public static function level(array $input, string $name): ?int
     {
         if (!isset($input[$name]) || $input[$name] === '') {
             return null;

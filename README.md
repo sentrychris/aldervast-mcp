@@ -18,7 +18,9 @@ src/Tools/     Aldervast\Tools   the tools themselves: what the MCP server offer
   FindItemsTool.php      the find_items tool: the items of a type up to a level, best first
   FindSkillsTool.php     the find_skills tool: skills by type, tag, weapon and level, or the runes for one skill
   LevellingRouteTool.php the levelling_route tool: the regions, dungeons and quests that suit a level
+  WhatsOnTool.php        the whats_on tool: festivals, seasons, world boss times, resets and omens at a moment
   LatestReleaseTool.php  the latest_release tool: the newest version and its notes, from the changelog
+  SearchReleasesTool.php the search_releases tool: every release, searched by words or read by version
   WikiEntryParser.php    turns the HTML of one wiki entry into an array (get_wiki_entry uses it)
   Html.php               parses a page of HTML (WikiEntryParser and latest_release use it)
   AldervastSite.php      downloads files from aldervast.online, and keeps copies in cache/ for an hour
@@ -77,7 +79,9 @@ So `src/Tools/` is the whole MCP product, with no learning or measuring code mix
 | `find_skills` | optional `type`, `tag`, `needs`, `max_level`, `min_level`, `supports_for`, `limit` (default 25, max 50) | Skill glyphs matching every filter, lowest level first, with tags, what they need in hand, damage and mana. With `supports_for` (a skill's name), the support runes that fit that skill. |
 | `find_items` | optional `type`, `max_level`, `min_level`, `limit` (default 15, max 50) | The base items and unique items of a type within the levels, highest level first, with requirements, stats, modifiers and where uniques come from. With no type, the item types and their sizes. |
 | `levelling_route` | `level` (1 to 60) | The regions, dungeons and quests that suit that level, with levels, quest givers, the quest that must come first, the quest that leads into each dungeon, when a dungeon is only open at certain times, the main-story chapter of each main-story quest, the boss of a world boss quest, and URLs. |
+| `whats_on` | optional `at` (a UTC date or date-time; default now) | What's on at that moment, from the wiki's schedules: festivals and seasons running, each world boss's next wake time, the next weekly resets, this week's Hourglass omens, dungeons open only at certain times, and schedules the tool can't work out, as the wiki words them. |
 | `latest_release` | none | The newest version of the game: its version number, release date and release notes, from the changelog page. |
+| `search_releases` | optional `query`, `version`, `limit` (default 10, max 30) | Releases whose notes contain the words, most words first, with the matching parts of the notes; or one version's whole notes; or, with neither, the newest releases. |
 
 ### When search misses: words versus meaning
 
@@ -413,7 +417,7 @@ Tools are one of three things that an MCP server can offer. The other two are **
 
 | | Who decides | What this server offers |
 |---|---|---|
-| Tool | The model, during a chat | The nine tools above |
+| Tool | The model, during a chat | The eleven tools above |
 | Resource | The person, who attaches it to a chat | Each wiki page, whole, as Markdown |
 | Prompt | The person, who picks it like a command | `plan_build` and `plan_levelling` |
 
@@ -636,6 +640,8 @@ You can ask two different questions about an MCP server, and these tests answer 
 | `SearchWikiToolTest` | How results are ranked, the category filter, the result limit, the " …" on cut summaries, and HTML codes such as `&#x2019;` |
 | `GetWikiEntryToolTest` | Different ways of writing a URL, names that several entries share, suggestions for near misses, refusing other websites, and shortening long output |
 | `GetWikiEntriesToolTest` | Several entries in one call: each the same as from `get_wiki_entry`, in the order asked for, a repeated URL fetched once, failed URLs listed with their reasons next to the entries that worked, the limit of ten, and refusing input that isn't a list |
+| `WhatsOnToolTest` | What's on at a given moment: a festival that crosses the new year (first day, last day, the days around it), its dungeon opening with it, a season's first and last day, world bosses soonest first and a wake time that has just passed, the next weekly reset, this week's Hourglass omens changing on Monday and repeating, and errors for a moment that isn't a real UTC date |
+| `SearchReleasesToolTest` | The release history: releases with more of the words first, then the newest, the matching clauses (and long ones cut), words matched only at the start of a word, one version's whole notes, an unknown version, the list of newest releases, and the limit |
 | `FindSkillsToolTest` | Skills by type, tag (ignoring case), what they need in hand and level, all filters together, lowest level first, the limit, the runes that fit a skill (and those left out by "Cannot support"), and errors that list the valid values |
 | `FindItemsToolTest` | Item types matched exactly or by a word, highest level first and then by name, both level limits, the fields of base and unique items (and fields left out when an item lacks them), where uniques drop or which reward gives them, the limit, the list of types, and errors for an unknown type or a bad level |
 | `ListCategoryToolTest` | The list of categories and their sizes, pages of results for big categories, category labels, and cut summaries |

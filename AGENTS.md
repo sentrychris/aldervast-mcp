@@ -42,7 +42,10 @@ src/Tools/          Aldervast\Tools: the tools, used by the MCP server, agent.ph
   FindSkillsTool.php  the find_skills tool: skills.html by Type/Tags/Needs/Level; supports_for = supports.html runes whose
                       "Supports skills tagged" (| = or, Any) and "Cannot support" facts fit the skill (the tool's reading, stated in its output)
   LevellingRouteTool.php  the levelling_route tool: regions, dungeons and quests that suit a level, from the Level facts
-  LatestReleaseTool.php  the latest_release tool: the first release in changelog.html's list (version, date, notes)
+  WhatsOnTool.php     the whats_on tool: schedule facts (When, Runs, Wakes, Resets, Open) from festivals, endgame,
+                      worldbosses, hourglass, dungeons and professions pages, worked out at a UTC moment; unreadable ones go under "other"
+  LatestReleaseTool.php  the latest_release tool: the first release in changelog.html's list (version, date, notes); all() reads every release
+  SearchReleasesTool.php  the search_releases tool: changelog releases by words (word-start match, matching clauses) or by version
   WikiEntryParser.php one entry's HTML -> array (article or table row)
   Html.php            Html::xpath(): parses HTML (UTF-8 prefix, libxml warnings collected and cleared)
   AldervastSite.php   cached, polite fetching from aldervast.online (cache/ is gitignored, 1 hour TTL)
@@ -255,9 +258,8 @@ All of this is on the wiki. Treat the wiki as the source of truth over this summ
    about 30 `get_wiki_entry` calls; this returns up to 10 entries per call, each as `get_wiki_entry`
    returns it (`GetWikiEntryTool::fromPage()`).
 8. ~~`find_items(type, max_level)`~~ and ~~`find_skills`~~: done (`src/Tools/FindItemsTool.php`,
-   `src/Tools/FindSkillsTool.php`). Next candidates: `whats_on` (festival, world boss times, timed dungeons; check
-   first that the wiki gives the times in a form code can read), `search_releases` (the whole
-   changelog), and backlinks ("what drops this?"), which needs every wiki page read; ask Chris first.
+   `src/Tools/FindSkillsTool.php`). ~~`whats_on`~~ and ~~`search_releases`~~: done too. Next
+   candidate: backlinks ("what drops this?"), which needs every wiki page read; ask Chris first.
 
 **Hard; don't start without asking:** a live `server_status` tool. The status query runs over ENet (a
 UDP protocol) plus Godot's RPC encoding, which PHP can't speak without reimplementing both. A simpler

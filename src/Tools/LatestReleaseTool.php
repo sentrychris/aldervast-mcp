@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aldervast\Tools;
 
 use DOMElement;
+use DOMXPath;
 use RuntimeException;
 
 /**
@@ -61,6 +62,29 @@ final class LatestReleaseTool
                 . 'so the website has probably changed. See ' . AldervastSite::url(self::PATH));
         }
 
+        return self::read($xpath, $item, $version);
+    }
+
+    /**
+     * Every release on the changelog page, newest first, as version, date and notes. search_releases
+     * uses it. A list item without a version is skipped.
+     */
+    public static function all(string $html): array
+    {
+        $xpath = Html::xpath($html);
+        $releases = [];
+        foreach ($xpath->query("//ol[contains(concat(' ', normalize-space(@class), ' '), ' timeline ')]/li") as $item) {
+            $version = $item instanceof DOMElement ? trim($xpath->evaluate('string(./b)', $item)) : '';
+            if ($version !== '') {
+                $releases[] = self::read($xpath, $item, $version);
+            }
+        }
+
+        return $releases;
+    }
+
+    private static function read(DOMXPath $xpath, DOMElement $item, string $version): array
+    {
         // The notes are the item's own text: everything except the version (<b>) and the date (<time>).
         $notes = '';
         foreach ($item->childNodes as $child) {

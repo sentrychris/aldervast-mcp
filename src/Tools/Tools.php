@@ -43,7 +43,9 @@ final class Tools
         FindItemsTool::class,
         FindSkillsTool::class,
         LevellingRouteTool::class,
+        WhatsOnTool::class,
         LatestReleaseTool::class,
+        SearchReleasesTool::class,
     ];
 
     /**
